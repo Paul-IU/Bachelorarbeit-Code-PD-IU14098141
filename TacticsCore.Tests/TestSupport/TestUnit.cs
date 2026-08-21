@@ -15,8 +15,8 @@ namespace TacticsCore.Tests.TestSupport;
 /// </summary>
 public sealed class TestUnit : Unit
 {
-    public TestUnit(Guid id, Team team, HexCoordinate position, int speed)
-        : base(id, team, position, UnitDefaults.MovementRange, UnitDefaults.MaxHitPoints, UnitDefaults.BaseAttackDamage, speed)
+    public TestUnit(Guid id, Team team, HexCoordinate position, int speed, int attackRange = UnitDefaults.AttackRange)
+        : base(id, team, position, UnitDefaults.MovementRange, UnitDefaults.MaxHitPoints, UnitDefaults.BaseAttackDamage, speed, attackRange)
     {
     }
 }

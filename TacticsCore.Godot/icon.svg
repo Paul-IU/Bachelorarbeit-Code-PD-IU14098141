@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <polygon points="96,32 96,96 64,124 32,96 32,32 64,4" fill="#3a7bd5" stroke="#1c3f6e" stroke-width="4"/>
+  <text x="64" y="74" font-family="sans-serif" font-size="40" fill="white" text-anchor="middle">T</text>
+</svg>

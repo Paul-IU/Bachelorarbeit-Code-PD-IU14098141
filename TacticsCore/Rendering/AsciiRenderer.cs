@@ -1,6 +1,7 @@
 using System.Text;
 using TacticsCore.Board;
 using TacticsCore.Combat;
+using TacticsCore.Effects;
 using TacticsCore.Hex;
 using TacticsCore.Movement;
 using TacticsCore.Units;
@@ -110,6 +111,10 @@ public static class AsciiRenderer
         sb.AppendLine();
         sb.AppendLine("Legende: A=Blüte A, B=Blüte B, C=Verbindungsfeld, *=Startfeld, -=leer");
         sb.AppendLine("         Einheiten als Bezeichnung:HP, mehrere durch Komma getrennt (z.B. A:50,X:30)");
+        sb.AppendLine("         ~ vor der Bezeichnung = temporäre Einheit (Klon), ! nach den HP = aktuell bewegungsunfähig");
+        sb.AppendLine("         {Effekt:Restdauer} = aktive Effekte auf der Einheit (Anheftungen, Auf-/Abladen, Buffs/Debuffs, ...)");
+        sb.AppendLine("         (+n) hinter einem Effekt = angesammelter Angriffsbonus (z.B. Bogenschütze-Aufladestufe)");
+        sb.AppendLine("         [Effekt:Restdauer] hinter der Belegung = aktiver, feld-verankerter Effekt (Feldsperre/Umleitung/Flächenwirkung)");
         if (selectedUnit is not null)
         {
             sb.AppendLine("         R<n> = für die ausgewählte Einheit in n Schritten erreichbar (0 = eigenes Feld)");
@@ -142,7 +147,9 @@ public static class AsciiRenderer
         var units = state.GetUnitsAt(field.Coordinate);
         string unitsPart = units.Count == 0
             ? "-"
-            : string.Join(",", units.Select(u => $"{Label(u, unitLabel)}:{u.CurrentHitPoints}"));
+            : string.Join(",", units.Select(u => FormatUnit(u, state, unitLabel)));
+
+        string fieldEffectsPart = FormatEffects(state.GetEffectsOnField(field.Coordinate), brackets: ('[', ']'));
 
         string overlay = "";
         if (reachableSteps is not null && reachableSteps.TryGetValue(field.Coordinate, out int steps))
@@ -154,7 +161,52 @@ public static class AsciiRenderer
             overlay += " ATK";
         }
 
-        return $"{field.Coordinate}{typeLetter}{startMarker}:{unitsPart}{overlay}";
+        return $"{field.Coordinate}{typeLetter}{startMarker}:{unitsPart}{fieldEffectsPart}{overlay}";
+    }
+
+    /// <summary>
+    /// Bezeichnung einer einzelnen Einheit inklusive Klon-Markierung ("~"
+    /// vorangestellt, siehe <see cref="Unit.IsClone"/>), aktiver, an sie
+    /// gebundener Effekte (siehe <see cref="ActiveEffect"/>) und einer
+    /// generischen Bewegungsunfähigkeits-Markierung ("!"), falls einer der
+    /// aktiven Effekte <see cref="ActiveEffect.PreventsMovement"/> setzt
+    /// (z.B. Wand während der Feldsperre, Bogenschütze während des
+    /// Aufladens) - unabhängig davon, welcher Held/Effekt das auslöst.
+    /// </summary>
+    private static string FormatUnit(Unit unit, GameState state, Func<Unit, string>? unitLabel)
+    {
+        string cloneMarker = unit.IsClone ? "~" : "";
+        string label = Label(unit, unitLabel);
+        var unitEffects = state.GetEffectsOnUnit(unit.Id).ToList();
+        string effectsPart = FormatEffects(unitEffects, brackets: ('{', '}'));
+        string immobileMarker = unitEffects.Any(e => e.PreventsMovement) ? "!" : "";
+        return $"{cloneMarker}{label}:{unit.CurrentHitPoints}{immobileMarker}{effectsPart}";
+    }
+
+    /// <summary>
+    /// Formatiert eine Effektliste als "&lt;Klammer-auf&gt;Name:Restdauer&lt;Klammer-zu&gt;",
+    /// leer wenn keine Effekte aktiv sind. Ein Effekt ohne begrenzte Dauer
+    /// zeigt statt der Zahl "-". Trägt der Effekt zusätzlich einen
+    /// angesammelten Angriffsbonus (siehe <see cref="ActiveEffect.BonusDamageForNextAttack"/> -
+    /// z.B. die Aufladestufe des Bogenschützen), wird er als "(+n)"
+    /// angehängt, damit die konkrete Ladungsstufe sichtbar ist, nicht nur
+    /// die Existenz des Effekts.
+    /// </summary>
+    private static string FormatEffects(IEnumerable<ActiveEffect> effects, (char Open, char Close) brackets)
+    {
+        var list = effects.ToList();
+        if (list.Count == 0)
+        {
+            return "";
+        }
+
+        string joined = string.Join("+", list.Select(e =>
+        {
+            string duration = e.RemainingDuration is int d ? d.ToString() : "-";
+            string bonus = e.BonusDamageForNextAttack is int b ? $"(+{b})" : "";
+            return $"{e.Name}:{duration}{bonus}";
+        }));
+        return $" {brackets.Open}{joined}{brackets.Close}";
     }
 
     /// <summary>Bezeichnung einer Einheit: <paramref name="unitLabel"/>, falls angegeben, sonst die bisherige Teamziffer (1/2).</summary>

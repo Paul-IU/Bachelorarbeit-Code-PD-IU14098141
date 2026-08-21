@@ -1,5 +1,7 @@
 using TacticsCore.Board;
+using TacticsCore.Effects;
 using TacticsCore.Hex;
+using TacticsCore.Match;
 using TacticsCore.Rules;
 using TacticsCore.Units;
 
@@ -30,6 +32,7 @@ public sealed class GameState
 {
     private readonly List<Unit> _units = new();
     private readonly Dictionary<HexCoordinate, List<Unit>> _unitsByCoordinate = new();
+    private readonly List<ActiveEffect> _activeEffects = new();
 
     public GameState(Board.Board board)
     {
@@ -97,6 +100,16 @@ public sealed class GameState
     /// ändert. Schlägt nur fehl, wenn ein (aktuell inaktives) Stapel-Limit
     /// das Zielfeld blockiert; in diesem Fall bleibt der Zustand
     /// unverändert.
+    ///
+    /// MITZIEHEN (siehe <see cref="Effects.EffectTemplate.CausesSourceToFollowTarget"/>,
+    /// z.B. Hugger): weil dies die EINZIGE Stelle ist, an der sich eine
+    /// Position tatsächlich ändert, wird hier - nach der eigentlichen
+    /// Bewegung - generisch geprüft, ob ein aktiver Effekt DIESE Einheit
+    /// als Ziel hat und seine Quelle mitziehen soll; falls ja, wird die
+    /// Quelle rekursiv über dieselbe Methode auf dasselbe Feld bewegt (ohne
+    /// eigenes Bewegungsbudget zu verbrauchen und ohne die sonst für eine
+    /// Bewegung geltenden Prüfungen wie Reichweite oder Feldsperren - das
+    /// ist keine eigene Zugentscheidung der mitgezogenen Einheit).
     /// </summary>
     internal bool MoveUnit(Unit unit, HexCoordinate target)
     {
@@ -108,6 +121,16 @@ public sealed class GameState
         RemoveFromIndex(unit.Position, unit);
         unit.SetPosition(target);
         AddToIndex(target, unit);
+
+        foreach (var effect in _activeEffects.Where(e => e.CausesSourceToFollowTarget && e.TargetUnitId == unit.Id).ToList())
+        {
+            var follower = _units.FirstOrDefault(u => u.Id == effect.SourceUnitId);
+            if (follower is not null && follower.Position != target)
+            {
+                MoveUnit(follower, target);
+            }
+        }
+
         return true;
     }
 
@@ -143,6 +166,67 @@ public sealed class GameState
 
         int occupantsExcludingSelf = GetUnitsAt(target).Count(u => u != unit);
         return occupantsExcludingSelf < max;
+    }
+
+    /// <summary>
+    /// Alle aktuell aktiven Effekte der Partie (Buffs, Debuffs,
+    /// Feldsperren, Schadensreduktionen, ...) - Teil des Spielzustands
+    /// (Anforderung 10). Die eigentlichen Regeln (Anwenden, Ticken,
+    /// Ablaufen, Stapelverhalten) liegen bewusst getrennt in
+    /// <see cref="Effects.EffectSystem"/>, nicht hier - GameState verwaltet
+    /// nur die reine Buchführung, analog zu Units/Belegung.
+    /// </summary>
+    public IReadOnlyList<ActiveEffect> ActiveEffects => _activeEffects;
+
+    /// <summary>Alle aktiven, an <paramref name="unitId"/> gebundenen Effekte.</summary>
+    public IEnumerable<ActiveEffect> GetEffectsOnUnit(Guid unitId) =>
+        _activeEffects.Where(e => e.AnchorType == EffectAnchorType.Unit && e.TargetUnitId == unitId);
+
+    /// <summary>Alle aktiven, an <paramref name="field"/> gebundenen Effekte.</summary>
+    public IEnumerable<ActiveEffect> GetEffectsOnField(HexCoordinate field) =>
+        _activeEffects.Where(e => e.AnchorType == EffectAnchorType.Field && e.TargetField == field);
+
+    /// <summary>Ausschließlich für <see cref="Effects.EffectSystem"/> gedacht.</summary>
+    internal void AddEffect(ActiveEffect effect) => _activeEffects.Add(effect);
+
+    /// <summary>Ausschließlich für <see cref="Effects.EffectSystem"/> gedacht.</summary>
+    internal void RemoveEffect(ActiveEffect effect) => _activeEffects.Remove(effect);
+
+    /// <summary>Alle Felder, die aktuell für mindestens ein Team gesperrt sind, mit dem gesperrten Team (Anforderung 18: "alle gesperrten Felder" müssen auslesbar sein).</summary>
+    public IEnumerable<(HexCoordinate Field, Team LockedAgainst)> GetLockedFields() =>
+        _activeEffects
+            .Where(e => e.FieldLockAgainstTeam.HasValue)
+            .Select(e => (e.TargetField!.Value, e.FieldLockAgainstTeam!.Value))
+            .Distinct();
+
+    // -----------------------------------------------------------------
+    // ZUSÄTZLICH AUSLESBARER LAUFZEIT-KONTEXT (Anforderung 18 aus dem
+    // Schnittstellen-Teil): welche Runde gerade läuft, wer aktuell am Zug
+    // ist und welches Aktionsbudget dieser Einheit noch verbleibt. Reine
+    // Buchführung, ausschließlich vom MatchController gepflegt (daher
+    // "internal set"-artige Methoden) - für eine spätere Oberfläche
+    // gedacht, die den GESAMTEN Spielzustand ohne Rückgriff auf den
+    // MatchController selbst ablesen können soll, ohne dass GameState
+    // dadurch irgendeine Rundenlogik selbst übernimmt.
+    // -----------------------------------------------------------------
+
+    /// <summary>Die aktuell laufende Runde (0, solange noch keine Runde begonnen hat).</summary>
+    public int CurrentRoundNumber { get; private set; }
+
+    /// <summary>Die Einheit, die gerade am Zug ist; null zwischen zwei Zügen bzw. vor/nach der Partie.</summary>
+    public Guid? CurrentActingUnitId { get; private set; }
+
+    /// <summary>Das noch verbleibende Aktionsbudget der aktuell handelnden Einheit (siehe <see cref="CurrentActingUnitId"/>).</summary>
+    public TurnBudget CurrentTurnBudget { get; private set; }
+
+    /// <summary>Ausschließlich für <see cref="Match.MatchController"/> gedacht.</summary>
+    internal void SetCurrentRound(int roundNumber) => CurrentRoundNumber = roundNumber;
+
+    /// <summary>Ausschließlich für <see cref="Match.MatchController"/> gedacht.</summary>
+    internal void SetCurrentActor(Guid? unitId, TurnBudget budget)
+    {
+        CurrentActingUnitId = unitId;
+        CurrentTurnBudget = budget;
     }
 
     private void AddToIndex(HexCoordinate coordinate, Unit unit)

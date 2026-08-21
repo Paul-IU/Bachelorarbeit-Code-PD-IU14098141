@@ -1,3 +1,4 @@
+using TacticsCore.Effects;
 using TacticsCore.Hex;
 using TacticsCore.Rules;
 using TacticsCore.Units;
@@ -29,16 +30,19 @@ public static class MovementSystem
     }
 
     /// <summary>
-    /// Führt die eigentliche Breitensuche ab <paramref name="start"/> bis
-    /// zur maximalen Schrittzahl <paramref name="range"/> aus. Das
-    /// Startfeld selbst ist immer mit 0 Schritten enthalten.
+    /// Führt die eigentliche Breitensuche ab der aktuellen Position von
+    /// <paramref name="unit"/> bis zu deren effektiver Bewegungsreichweite
+    /// aus (siehe <see cref="EffectiveStats.MovementRange"/>). Das Startfeld
+    /// selbst ist immer mit 0 Schritten enthalten (Ausnahme siehe
+    /// Bewegungsunfähigkeit unten).
     ///
     /// BLOCKIERREGEL (siehe <see cref="OccupancyRules.UnitsBlockMovement"/>):
     /// In der aktuellen Grundregel blockieren Einheiten die Bewegung nicht
-    /// - die Suche berücksichtigt daher ausschließlich, ob ein Feld Teil
+    /// - die Suche berücksichtigt daher grundsätzlich nur, ob ein Feld Teil
     /// des 16-Felder-Spielfelds ist, nicht ob es belegt ist. Der Schalter
-    /// existiert bereits jetzt als Vorbereitung für später blockierende
-    /// Fähigkeiten.
+    /// existiert als Vorbereitung für spätere generell blockierende
+    /// Fähigkeiten; die spezifischere, bereits aktive Feldsperre einzelner
+    /// Fähigkeiten ist unten separat beschrieben.
     ///
     /// DETERMINISMUS / PFADAUSWAHL: Die Warteschlange arbeitet strikt FIFO
     /// (<see cref="Queue{T}"/>), und die Nachbarn jedes Feldes werden immer
@@ -52,11 +56,40 @@ public static class MovementSystem
     /// denselben Baum und damit denselben kürzesten Pfad zu jedem Feld -
     /// unabhängig von z.B. der internen Reihenfolge eines Dictionary, auf
     /// die an keiner Stelle für die Kontrolllogik zurückgegriffen wird.
+    ///
+    /// BEWEGUNGSUNFÄHIGKEIT: Ist <paramref name="unit"/> aktuell durch einen
+    /// Effekt bewegungsunfähig (siehe <see cref="EffectiveStats.IsMovementPrevented"/>,
+    /// z.B. eine Selbstbeschränkungs-Fähigkeit), liefert diese Suche eine
+    /// VOLLSTÄNDIG LEERE Distanzliste - ausdrücklich OHNE das sonst immer
+    /// enthaltene Startfeld. Eine bewegungsunfähige Einheit hat also keine
+    /// legalen Bewegungsziele, nicht einmal "Stehenbleiben" als expliziten
+    /// Zug (Test: "ein bewegungsunfähiger Held hat keine legalen
+    /// Bewegungszüge"). Das ist die einzige Stelle, an der diese Prüfung
+    /// stattfindet - <see cref="GetReachableFields"/>, <see cref="GetShortestPath"/>
+    /// und <see cref="TryMove"/> rufen alle diese Methode auf und erben die
+    /// Sperre dadurch automatisch.
+    ///
+    /// FELDSPERRE (Anforderung 8, "die vorhandene Option im Bewegungssystem
+    /// nutzen"): analog zur bestehenden Prüfung gegen
+    /// <see cref="OccupancyRules.UnitsBlockMovement"/> wird ein Nachbarfeld
+    /// übersprungen, wenn es durch einen aktiven Effekt gegen das TEAM der
+    /// ziehenden Einheit gesperrt ist (<see cref="ActiveEffect.FieldLockAgainstTeam"/>) -
+    /// Verbündete des Erzeugers sind von dieser Sperre nicht betroffen, da
+    /// deren Team nicht dem gesperrten Team entspricht.
     /// </summary>
-    private static BfsResult RunBreadthFirstSearch(HexCoordinate start, int range, GameState state)
+    private static BfsResult RunBreadthFirstSearch(Unit unit, GameState state)
     {
-        var distances = new Dictionary<HexCoordinate, int> { [start] = 0 };
+        var distances = new Dictionary<HexCoordinate, int>();
         var predecessors = new Dictionary<HexCoordinate, HexCoordinate>();
+
+        if (EffectiveStats.IsMovementPrevented(unit, state))
+        {
+            return new BfsResult { Distances = distances, Predecessors = predecessors };
+        }
+
+        var start = unit.Position;
+        distances[start] = 0;
+        int range = EffectiveStats.MovementRange(unit, state);
         var queue = new Queue<HexCoordinate>();
         queue.Enqueue(start);
 
@@ -81,6 +114,11 @@ public static class MovementSystem
                     continue; // siehe Blockierregel-Kommentar oben
                 }
 
+                if (IsFieldLockedAgainst(state, neighbor, unit.Team))
+                {
+                    continue; // Feldsperren-Effekt gegen das Team dieser Einheit aktiv
+                }
+
                 if (distances.ContainsKey(neighbor))
                 {
                     continue; // bereits mit kürzerer oder gleich kurzer Distanz gefunden
@@ -95,6 +133,9 @@ public static class MovementSystem
         return new BfsResult { Distances = distances, Predecessors = predecessors };
     }
 
+    private static bool IsFieldLockedAgainst(GameState state, HexCoordinate field, Team team) =>
+        state.GetEffectsOnField(field).Any(e => e.FieldLockAgainstTeam == team);
+
     /// <summary>
     /// Liefert alle innerhalb der Bewegungsreichweite von <paramref name="unit"/>
     /// erreichbaren Felder mit der jeweils benötigten Schrittzahl. Das
@@ -103,7 +144,7 @@ public static class MovementSystem
     /// </summary>
     public static IReadOnlyList<ReachableField> GetReachableFields(Unit unit, GameState state)
     {
-        var result = RunBreadthFirstSearch(unit.Position, unit.MovementRange, state);
+        var result = RunBreadthFirstSearch(unit, state);
 
         return result.Distances
             .Select(kvp => new ReachableField(kvp.Key, kvp.Value))
@@ -130,7 +171,7 @@ public static class MovementSystem
     /// </summary>
     public static IReadOnlyList<HexCoordinate> GetShortestPath(Unit unit, HexCoordinate target, GameState state)
     {
-        var result = RunBreadthFirstSearch(unit.Position, unit.MovementRange, state);
+        var result = RunBreadthFirstSearch(unit, state);
         if (!result.Distances.ContainsKey(target))
         {
             return Array.Empty<HexCoordinate>();
@@ -162,7 +203,7 @@ public static class MovementSystem
             return false; // besiegte Einheiten können nicht mehr handeln
         }
 
-        var result = RunBreadthFirstSearch(unit.Position, unit.MovementRange, state);
+        var result = RunBreadthFirstSearch(unit, state);
         if (!result.Distances.ContainsKey(target))
         {
             return false;

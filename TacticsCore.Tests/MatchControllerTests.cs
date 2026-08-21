@@ -149,21 +149,29 @@ public class MatchControllerTests
         var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
         controller.ExecuteTurn(unit, agent, new Random(1), replay, roundNumber: 3, startingTeam: Team.TeamA);
 
-        Assert.Equal(2, replay.Count);
+        // 4 statt 2 Einträge: TurnStarted/TurnEnded rahmen den Zug zusätzlich
+        // (Anforderung 16 aus dem Schnittstellen-Teil) - das ändert nichts
+        // daran, dass NUR tatsächlich ausgeführte Aktionen dazwischen
+        // protokolliert werden (kein Eintrag für ein aktives Passen o.ä.).
+        Assert.Equal(4, replay.Count);
 
-        Assert.Equal(ReplayActionType.Attack, replay[0].ActionType);
-        Assert.Equal(3, replay[0].RoundNumber);
-        Assert.Equal(unit.Id, replay[0].ActingUnitId);
-        Assert.Equal(Team.TeamA, replay[0].ActingTeam);
-        Assert.Equal(enemy.Id, replay[0].AttackTargetUnitId);
-        Assert.Equal(unit.BaseAttackDamage, replay[0].DamageDealt);
-        Assert.Null(replay[0].MoveTarget);
-        Assert.Null(replay[0].MoveSource);
+        Assert.Equal(ReplayActionType.TurnStarted, replay[0].ActionType);
 
-        Assert.Equal(ReplayActionType.Move, replay[1].ActionType);
-        Assert.Equal(new HexCoordinate(0, 0), replay[1].MoveSource); // Einheit stand bereits auf (0,0) - "Stehenbleiben"
-        Assert.Equal(new HexCoordinate(0, 0), replay[1].MoveTarget);
-        Assert.Null(replay[1].AttackTargetUnitId);
+        Assert.Equal(ReplayActionType.Attack, replay[1].ActionType);
+        Assert.Equal(3, replay[1].RoundNumber);
+        Assert.Equal(unit.Id, replay[1].ActingUnitId);
+        Assert.Equal(Team.TeamA, replay[1].ActingTeam);
+        Assert.Equal(enemy.Id, replay[1].AttackTargetUnitId);
+        Assert.Equal(unit.BaseAttackDamage, replay[1].DamageDealt);
+        Assert.Null(replay[1].MoveTarget);
+        Assert.Null(replay[1].MoveSource);
+
+        Assert.Equal(ReplayActionType.Move, replay[2].ActionType);
+        Assert.Equal(new HexCoordinate(0, 0), replay[2].MoveSource); // Einheit stand bereits auf (0,0) - "Stehenbleiben"
+        Assert.Equal(new HexCoordinate(0, 0), replay[2].MoveTarget);
+        Assert.Null(replay[2].AttackTargetUnitId);
+
+        Assert.Equal(ReplayActionType.TurnEnded, replay[3].ActionType);
     }
 
     // -----------------------------------------------------------------

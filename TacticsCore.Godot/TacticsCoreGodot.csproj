@@ -1,0 +1,19 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>TacticsCoreGodot</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Projektreferenz statt Code-Kopie (Vorgabe Punkt 1): Godot liest den
+      Spielzustand ausschließlich über die öffentliche API der bestehenden
+      Klassenbibliothek - kein einziger Regel- oder Simulations-Typ wird
+      hier neu definiert oder dupliziert.
+    -->
+    <ProjectReference Include="..\TacticsCore\TacticsCore.csproj" />
+  </ItemGroup>
+</Project>

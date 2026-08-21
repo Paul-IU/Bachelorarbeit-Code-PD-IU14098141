@@ -1,3 +1,4 @@
+using TacticsCore.Abilities;
 using TacticsCore.Hex;
 using TacticsCore.Units;
 
@@ -6,16 +7,20 @@ namespace TacticsCore.Match;
 /// <summary>
 /// Eine von einem Agenten für seine Einheit gewählte Teilaktion innerhalb
 /// ihres aktuellen Zugs. Bewusst als geschlossene Klassenhierarchie
-/// modelliert (privater Basiskonstruktor - nur die drei hier definierten
-/// Fälle sind möglich), weil C# keine echten Discriminated Unions kennt,
-/// eine erschöpfende switch-Auswertung im <see cref="MatchController"/>
-/// aber trotzdem gewünscht ist.
+/// modelliert (privater Basiskonstruktor - nur die hier definierten Fälle
+/// sind möglich), weil C# keine echten Discriminated Unions kennt, eine
+/// erschöpfende switch-Auswertung im <see cref="MatchController"/> aber
+/// trotzdem gewünscht ist.
 ///
-/// ERWEITERBARKEIT: Eine spätere Fähigkeit als Alternative zum Grundangriff
-/// wird hier einfach ein weiterer Fall (z.B. <c>TurnAction.UseAbility</c>),
-/// ohne dass sich an <see cref="TurnBudget"/> oder der Zugschleife im
-/// MatchController grundsätzlich etwas ändern muss - Move und Attack/
-/// UseAbility bleiben unabhängige Budget-Slots.
+/// AKTIONSBUDGET (Anforderung 6 aus Teil B): pro Zug genau eine Bewegung
+/// PLUS genau eine Aktion, wobei die Aktion entweder ein Grundangriff
+/// (<see cref="Attack"/>) ODER eine Heldenfähigkeit
+/// (<see cref="UseAbility"/>) ist - beide verbrauchen denselben
+/// "Aktions"-Budget-Slot (siehe <see cref="TurnBudget.CanAct"/>). Das ist
+/// der Grund, warum das frühere <c>TurnBudget.CanAttack</c> zu
+/// <c>CanAct</c> wurde: die Rundenverwaltung selbst musste dafür NICHT
+/// umgebaut werden, nur dieser eine Slot heißt jetzt allgemeiner und der
+/// switch in MatchController bekam einen weiteren Fall.
 /// </summary>
 public abstract class TurnAction
 {
@@ -30,11 +35,23 @@ public abstract class TurnAction
         public Move(HexCoordinate target) => Target = target;
     }
 
-    /// <summary>Grundangriff auf <see cref="Target"/> (siehe <see cref="Unit.TryAttack"/>). Verbraucht den Angriffs-Slot.</summary>
+    /// <summary>Grundangriff auf <see cref="Target"/> (siehe <see cref="Unit.TryAttack"/>). Verbraucht den Aktions-Slot.</summary>
     public sealed class Attack : TurnAction
     {
         public Unit Target { get; }
         public Attack(Unit target) => Target = target;
+    }
+
+    /// <summary>Einsatz der Heldenfähigkeit auf <see cref="Target"/> (ggf. mit <see cref="Mode"/>). Verbraucht denselben Aktions-Slot wie <see cref="Attack"/>.</summary>
+    public sealed class UseAbility : TurnAction
+    {
+        public AbilityTarget Target { get; }
+        public AbilityMode? Mode { get; }
+        public UseAbility(AbilityTarget target, AbilityMode? mode = null)
+        {
+            Target = target;
+            Mode = mode;
+        }
     }
 
     /// <summary>
@@ -54,11 +71,11 @@ public abstract class TurnAction
 
 /// <summary>
 /// Zeigt einem Agenten an, welche Aktionskomponenten für den aktuellen Zug
-/// noch verfügbar sind. Siehe Anforderung 3: genau eine Bewegung UND genau
-/// ein Angriff pro Zug, in freier Reihenfolge.
+/// noch verfügbar sind: genau eine Bewegung UND genau eine Aktion
+/// (Grundangriff ODER Heldenfähigkeit), in freier Reihenfolge.
 /// </summary>
-public readonly record struct TurnBudget(bool CanMove, bool CanAttack)
+public readonly record struct TurnBudget(bool CanMove, bool CanAct)
 {
     /// <summary>Ob überhaupt noch irgendeine Aktion möglich ist (sonst ist der Zug ohnehin zwangsläufig zu Ende).</summary>
-    public bool HasAnyBudget => CanMove || CanAttack;
+    public bool HasAnyBudget => CanMove || CanAct;
 }

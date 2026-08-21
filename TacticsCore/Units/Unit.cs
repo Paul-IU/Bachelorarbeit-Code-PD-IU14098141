@@ -45,35 +45,61 @@ public class Unit
     public int BaseAttackDamage { get; }
 
     /// <summary>
+    /// Reichweite des Grundangriffs in Hex-Distanz (0 = nur das eigene
+    /// Feld, 1 = zusätzlich alle sechs Nachbarn, ...). Siehe
+    /// <see cref="UnitDefaults.AttackRange"/> und
+    /// <see cref="Combat.CombatSystem.GetAttackPatternFields"/>.
+    /// </summary>
+    public int AttackRange { get; }
+
+    /// <summary>
     /// Geschwindigkeit - bestimmt die Rangfolge innerhalb des eigenen Teams
     /// in der Zugreihenfolge (absteigend). Siehe <see cref="UnitDefaults.Speed"/>
     /// und <see cref="Match.TurnOrder"/>.
     /// </summary>
     public int Speed { get; }
 
-    /// <summary>Aktuelle Lebenspunkte, nie negativ (siehe <see cref="ApplyDamage"/>).</summary>
+    /// <summary>Aktuelle Lebenspunkte, nie negativ (siehe <see cref="ApplyDamage"/>) und nie über <see cref="MaxHitPoints"/> (siehe <see cref="Heal"/>).</summary>
     public int CurrentHitPoints { get; private set; }
 
     /// <summary>Ob die Einheit besiegt ist (HP auf 0 gefallen). Besiegte Einheiten handeln nicht mehr und sind kein gültiges Ziel.</summary>
     public bool IsDefeated => CurrentHitPoints <= 0;
 
+    /// <summary>
+    /// Ob diese Einheit eine temporäre, von einer Fähigkeit erzeugte
+    /// Einheit ("Klon") ist - siehe <see cref="CreateClone"/> und
+    /// Anforderung 9. Ein Klon zählt NICHT als Held: weder für die
+    /// Siegbedingung noch für die Heldenanzahl-Wertung beim Rundenlimit
+    /// (siehe <see cref="Match.MatchController"/>), kann nicht angreifen
+    /// und keine Fähigkeit nutzen (siehe <see cref="Combat.CombatSystem"/>
+    /// und <see cref="Abilities.AbilitySystem"/>) und handelt in der
+    /// Zugreihenfolge unmittelbar nach seinem Erzeuger statt nach eigenem
+    /// Speed (siehe <see cref="Match.TurnOrder"/> und
+    /// <see cref="Match.MatchController"/>).
+    /// </summary>
+    public bool IsClone { get; private set; }
+
+    /// <summary>Bei einem Klon (<see cref="IsClone"/>) die Id des erzeugenden Helden; sonst null.</summary>
+    public Guid? CreatorId { get; private set; }
+
     public Unit(Guid id, Team team, HexCoordinate startPosition)
-        : this(id, team, startPosition, UnitDefaults.MovementRange, UnitDefaults.MaxHitPoints, UnitDefaults.BaseAttackDamage, UnitDefaults.Speed)
+        : this(id, team, startPosition, UnitDefaults.MovementRange, UnitDefaults.MaxHitPoints, UnitDefaults.BaseAttackDamage, UnitDefaults.Speed, UnitDefaults.AttackRange)
     {
     }
 
     /// <summary>
     /// Erweiterte Konstruktor-Überladung für spätere Helden-Unterklassen mit
-    /// abweichender Reichweite, HP, Grundschaden oder Speed. Bewusst als
-    /// normale, im Konstruktor gesetzte Eigenschaften umgesetzt statt als
-    /// überschreibbare virtuelle Member: ein virtueller Aufruf im
-    /// Basiskonstruktor würde bei Unterklassen, deren Override auf noch
-    /// nicht initialisierten eigenen Feldern basiert, zu falschen Werten
-    /// führen (bekannte C#-Falle). Werte werden stattdessen explizit über
-    /// den Konstruktor durchgereicht - eine zukünftige Hero-Klasse ruft
-    /// einfach <c>base(id, team, position, heroRange, heroHp, heroDamage, heroSpeed)</c> auf.
+    /// abweichender Reichweite, HP, Grundschaden, Speed oder Angriffs-
+    /// reichweite. Bewusst als normale, im Konstruktor gesetzte
+    /// Eigenschaften umgesetzt statt als überschreibbare virtuelle Member:
+    /// ein virtueller Aufruf im Basiskonstruktor würde bei Unterklassen,
+    /// deren Override auf noch nicht initialisierten eigenen Feldern
+    /// basiert, zu falschen Werten führen (bekannte C#-Falle). Werte werden
+    /// stattdessen explizit über den Konstruktor durchgereicht - eine
+    /// Hero-Unterklasse ruft einfach
+    /// <c>base(id, team, position, def.MovementRange, def.MaxHitPoints, def.BaseAttackDamage, def.Speed, def.AttackRange)</c> auf.
     /// </summary>
-    protected Unit(Guid id, Team team, HexCoordinate startPosition, int movementRange, int maxHitPoints, int baseAttackDamage, int speed)
+    protected Unit(Guid id, Team team, HexCoordinate startPosition, int movementRange, int maxHitPoints, int baseAttackDamage, int speed, int attackRange)
     {
         Id = id;
         Team = team;
@@ -82,7 +108,48 @@ public class Unit
         MaxHitPoints = maxHitPoints;
         BaseAttackDamage = baseAttackDamage;
         Speed = speed;
+        AttackRange = attackRange;
         CurrentHitPoints = maxHitPoints;
+    }
+
+    /// <summary>
+    /// Erzeugt eine temporäre Einheit ("Klon") für <paramref name="creator"/>
+    /// (Anforderung 9): startet auf dessen aktuellem Feld, im selben Team,
+    /// mit dessen Bewegungsreichweite, aber genau 1 HP - der Klon
+    /// "absorbiert genau eine Schadensinstanz vollständig und verschwindet
+    /// danach", was sich mit MaxHitPoints=1 automatisch aus der
+    /// bestehenden HP-/Niederlage-Logik ergibt (jeder Treffer, gleich
+    /// welcher Schadenshöhe, bringt die HP auf 0 - kein Sonderfall in
+    /// CombatSystem nötig). Grundschaden und Angriffsreichweite sind 0, da
+    /// der Klon ohnehin nicht angreifen darf (siehe
+    /// <see cref="Combat.CombatSystem"/>).
+    ///
+    /// Die Id wird bewusst NICHT über <c>Guid.NewGuid()</c> erzeugt, sondern
+    /// deterministisch aus der Erzeuger-Id abgeleitet: <c>Guid.NewGuid()</c>
+    /// wäre eine nicht über den Seed gesteuerte Zufallsquelle innerhalb der
+    /// laufenden Simulation (der Klon entsteht MITTEN in einer Partie, nicht
+    /// nur bei der Aufstellung) und würde z.B. die (q,r,UnitId)-Sortierung
+    /// von Zielen auf einem geteilten Feld unvorhersehbar verschieben. Da je
+    /// Erzeuger ohnehin nur ein Klon gleichzeitig existieren darf, ist eine
+    /// feste 1:1-Ableitung eindeutig und ausreichend.
+    /// </summary>
+    public static Unit CreateClone(Unit creator)
+    {
+        var clone = new Unit(DeriveCloneId(creator.Id), creator.Team, creator.Position, creator.MovementRange, maxHitPoints: 1, baseAttackDamage: 0, speed: 0, attackRange: 0);
+        clone.IsClone = true;
+        clone.CreatorId = creator.Id;
+        return clone;
+    }
+
+    private static Guid DeriveCloneId(Guid creatorId)
+    {
+        var bytes = creatorId.ToByteArray();
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            bytes[i] ^= 0xA5; // fester Bitmuster-Salt, nur zur Unterscheidung von der Erzeuger-Id
+        }
+
+        return new Guid(bytes);
     }
 
     /// <summary>
@@ -100,6 +167,14 @@ public class Unit
     /// einen validierten Angriff, nie direkt von außen.
     /// </summary>
     internal void ApplyDamage(int amount) => CurrentHitPoints = Math.Max(0, CurrentHitPoints - amount);
+
+    /// <summary>
+    /// Erhöht die aktuellen HP um <paramref name="amount"/>, nie über
+    /// <see cref="MaxHitPoints"/> hinaus. Ausschließlich für
+    /// <see cref="Abilities.AbilitySystem"/> gedacht (daher internal) -
+    /// Heilung entsteht nur durch eine validierte Fähigkeit.
+    /// </summary>
+    internal void Heal(int amount) => CurrentHitPoints = Math.Min(MaxHitPoints, CurrentHitPoints + amount);
 
     /// <summary>Alle innerhalb der Bewegungsreichweite erreichbaren Felder mit Schrittzahl. Siehe <see cref="MovementSystem.GetReachableFields"/>.</summary>
     public IReadOnlyList<ReachableField> GetReachableFields(GameState state) => MovementSystem.GetReachableFields(this, state);

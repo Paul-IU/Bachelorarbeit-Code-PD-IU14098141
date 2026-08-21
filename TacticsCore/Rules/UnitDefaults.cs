@@ -21,6 +21,17 @@ public static class UnitDefaults
     public const int BaseAttackDamage = 10;
 
     /// <summary>
+    /// Reichweite des Grundangriffs in Hex-Distanz. 1 bedeutet: das eigene
+    /// Feld (Distanz 0) PLUS alle sechs direkt angrenzenden Felder - das
+    /// eigene Feld ist bewusst Teil des Musters, weil dort (siehe
+    /// <see cref="OccupancyRules"/>) auch gegnerische Einheiten stehen
+    /// können. Löst den früheren, für alle Einheiten global fixen
+    /// <c>CombatRules.AttackPatternRadius</c> ab, jetzt da Helden (Fernkampf)
+    /// individuelle Angriffsreichweiten haben können.
+    /// </summary>
+    public const int AttackRange = 1;
+
+    /// <summary>
     /// Geschwindigkeit - bestimmt die Rangfolge innerhalb eines Teams in
     /// der Zugreihenfolge (siehe <see cref="TacticsCore.Match.TurnOrder"/>),
     /// absteigend sortiert. Der konkrete Wert ist momentan willkürlich, da

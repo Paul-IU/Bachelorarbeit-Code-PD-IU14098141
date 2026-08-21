@@ -1,0 +1,12 @@
+# Godot 4+ spezifisch
+.godot/
+.mono/
+export_presets.cfg
+
+# .NET
+bin/
+obj/
+*.user
+
+# Von Godot selbst generiert, sobald das Projekt im Editor geöffnet/gebaut wird
+TacticsCoreGodot.sln
