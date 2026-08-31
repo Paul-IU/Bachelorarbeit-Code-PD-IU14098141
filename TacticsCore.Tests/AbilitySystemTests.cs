@@ -43,6 +43,27 @@ public class AbilitySystemTests
     }
 
     [Fact]
+    public void Heilung_ElfeKannSichSelbstAlsZielWaehlenUndHeilen()
+    {
+        // Bachelorarbeit-Regel (siehe AbilityTargetType.Ally): "verbündet"
+        // schließt den Anwender selbst mit ein - ein Held ist sich selbst
+        // gegenüber nicht feindlich. Betrifft aktuell konkret die Elfe.
+        var state = NewState();
+        var elfe = new Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Elfe);
+        state.AddUnit(elfe);
+        elfe.ApplyDamage(15);
+
+        Assert.Contains(
+            AbilitySystem.GetLegalAbilityUses(elfe, state),
+            o => o.Target is AbilityTarget.UnitTarget u && u.Unit.Id == elfe.Id);
+
+        bool used = AbilitySystem.TryUseAbility(elfe, new AbilityTarget.UnitTarget(elfe), state);
+
+        Assert.True(used);
+        Assert.Equal(elfe.MaxHitPoints, elfe.CurrentHitPoints); // Distanz 0 -> volle Heilung (20) gedeckelt bei MaxHitPoints (45-15+20=50 > 45)
+    }
+
+    [Fact]
     public void Heilung_UeberschreitetDieMaximalenHpNicht()
     {
         var state = NewState();
@@ -139,7 +160,7 @@ public class AbilitySystemTests
         var first = AbilitySystem.GetLegalAbilityUses(elfe, state);
         var second = AbilitySystem.GetLegalAbilityUses(elfe, state);
 
-        Assert.Equal(2, first.Count);
+        Assert.Equal(3, first.Count); // ally1, ally2 UND die Elfe selbst (siehe AbilityTargetType.Ally)
         Assert.Equal(
             first.Select(o => ((AbilityTarget.UnitTarget)o.Target).Unit.Id),
             second.Select(o => ((AbilityTarget.UnitTarget)o.Target).Unit.Id));

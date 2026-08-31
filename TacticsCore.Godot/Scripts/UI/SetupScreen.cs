@@ -22,7 +22,11 @@ public partial class SetupScreen : Control
 
     public override void _Ready()
     {
-        SetAnchorsPreset(LayoutPreset.FullRect); // diese Steuerung selbst füllt ihren Elternknoten (MainController) aus
+        // Siehe MatchScreen für die Begründung: SetAnchorsAndOffsetsPreset()
+        // statt SetAnchorsPreset(), sonst bleiben Offsets bei einem frisch
+        // erzeugten (0x0 großen) Control auf riesigen negativen Werten
+        // stehen statt auf 0.
+        SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); // diese Steuerung selbst füllt ihren Elternknoten (MainController) aus
 
         var root = new VBoxContainer { AnchorRight = 1, AnchorBottom = 1 };
 

@@ -187,6 +187,40 @@ public class CombatSystemTests
     }
 
     [Fact]
+    public void DreiGegnerAufEinemFeld_GetValidAttackTargetsLiefertDreiGetrennteEinzelziele()
+    {
+        // Bachelorarbeit-Verifikation (Punkt C.7): die Kernbibliothek
+        // liefert legale Angriffsziele bereits EINHEITENWEISE, nicht
+        // feldweise - stehen mehrere Einheiten auf demselben Feld, erscheint
+        // JEDE als eigener Eintrag. Eine Oberfläche, die stattdessen nur das
+        // erste Ziel je Feld anbietet, hat also einen reinen Anzeigefehler,
+        // keinen fehlenden Kernbibliotheks-Mechanismus (siehe Godot
+        // ActionPanel-Korrektur).
+        var state = NewState();
+        var attacker = new Unit(Guid.NewGuid(), Team.TeamA, new HexCoordinate(0, 0));
+        var sharedField = new HexCoordinate(0, 1);
+        var enemy1 = new Unit(Guid.NewGuid(), Team.TeamB, sharedField);
+        var enemy2 = new Unit(Guid.NewGuid(), Team.TeamB, sharedField);
+        var enemy3 = new Unit(Guid.NewGuid(), Team.TeamB, sharedField);
+        state.AddUnit(attacker);
+        state.AddUnit(enemy1);
+        state.AddUnit(enemy2);
+        state.AddUnit(enemy3);
+
+        var targets = CombatSystem.GetValidAttackTargets(attacker, state);
+
+        Assert.Equal(3, targets.Count);
+        Assert.Contains(enemy1, targets);
+        Assert.Contains(enemy2, targets);
+        Assert.Contains(enemy3, targets);
+        // Stabile Sortierung nach (q, r, UnitId, siehe GetValidAttackTargets) -
+        // bei identischer Feldkoordinate entscheidet die UnitId.
+        Assert.Equal(
+            new[] { enemy1, enemy2, enemy3 }.OrderBy(u => u.Id).ToList(),
+            targets);
+    }
+
+    [Fact]
     public void GetAttackPatternFields_EnthaeltEigenesFeldUndAlleSechsNachbarn()
     {
         var state = NewState();

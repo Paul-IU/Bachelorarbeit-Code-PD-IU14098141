@@ -37,6 +37,24 @@ public enum ReplayActionType
     /// <summary>Eine neue Runde beginnt (vor der Neuberechnung der Zugreihenfolge).</summary>
     RoundStarted,
 
+    /// <summary>
+    /// Meldet die zu Beginn dieser Runde von <see cref="TurnOrder.ComputeRoundOrder"/>
+    /// bestimmte Zugreihenfolge nach außen (siehe <see cref="ReplayEntry.RoundOrder"/>).
+    /// Rein informativ, verändert selbst keinen Spielzustand - für eine
+    /// Oberfläche gedacht, die diese Reihenfolge anzeigen will, OHNE sie
+    /// selbst nachzuberechnen (ein direkter Zugriff auf den lebenden, beim
+    /// Live-Spiel nebenläufig vom Hintergrund-Thread veränderten GameState
+    /// wäre dafür nötig und soll der Oberfläche erspart bleiben - sie erhält
+    /// den bereits berechneten Wert über denselben threadsicheren
+    /// Ereignisstrom wie jedes andere Ereignis auch). Kommt in jeder Runde
+    /// genau einmal vor, unmittelbar vor dem ersten TurnStarted dieser
+    /// Runde. Ein während der laufenden Runde neu erzeugter Klon ist hier
+    /// NICHT enthalten - er wird stattdessen exakt zu dem Zeitpunkt, an dem
+    /// MatchController ihn dynamisch in die laufende Reihenfolge einfügt,
+    /// über das separate CloneSpawned-Ereignis gemeldet.
+    /// </summary>
+    RoundOrderDetermined,
+
     /// <summary>Die Partie ist beendet - siehe <see cref="ReplayEntry.Winner"/>/<see cref="ReplayEntry.EndReason"/>.</summary>
     MatchEnded,
 }
@@ -72,7 +90,8 @@ public sealed record ReplayEntry(
     HexCoordinate? EffectField = null,
     HexPath? MovePath = null,
     MatchWinner? Winner = null,
-    MatchEndReason? EndReason = null)
+    MatchEndReason? EndReason = null,
+    UnitOrder? RoundOrder = null)
 {
     /// <summary>
     /// <paramref name="source"/> ist die Position der Einheit UNMITTELBAR
@@ -147,6 +166,11 @@ public sealed record ReplayEntry(
     /// <summary>Kein handelndes Team - <see cref="ReplayEntry.ActingTeam"/> bleibt der bedeutungslose Default-Wert (siehe <see cref="ForEffectApplied"/>).</summary>
     public static ReplayEntry ForRoundStarted(int roundNumber) =>
         new(roundNumber, Guid.Empty, default, ReplayActionType.RoundStarted, MoveSource: null, MoveTarget: null, AttackTargetUnitId: null, DamageDealt: null);
+
+    /// <summary>Siehe <see cref="ReplayActionType.RoundOrderDetermined"/>.</summary>
+    public static ReplayEntry ForRoundOrderDetermined(int roundNumber, IReadOnlyList<Guid> roundOrder) =>
+        new(roundNumber, Guid.Empty, default, ReplayActionType.RoundOrderDetermined, MoveSource: null, MoveTarget: null,
+            AttackTargetUnitId: null, DamageDealt: null, RoundOrder: new UnitOrder(roundOrder));
 
     public static ReplayEntry ForMatchEnded(int roundNumber, MatchWinner winner, MatchEndReason endReason) =>
         new(roundNumber, Guid.Empty, default, ReplayActionType.MatchEnded, MoveSource: null, MoveTarget: null,

@@ -1,4 +1,5 @@
 using TacticsCore.Board;
+using TacticsCore.Effects;
 using TacticsCore.Hex;
 using TacticsCore.Match;
 using TacticsCore.Tests.TestSupport;
@@ -172,6 +173,89 @@ public class MatchControllerTests
         Assert.Null(replay[2].AttackTargetUnitId);
 
         Assert.Equal(ReplayActionType.TurnEnded, replay[3].ActionType);
+    }
+
+    // -----------------------------------------------------------------
+    // EFFEKT-ZEITPUNKT (Punkt D der Bachelorarbeit-Korrektur): Ticken und
+    // Ablaufen ausschließlich zu BEGINN des eigenen Zugs der betroffenen
+    // Einheit, noch bevor überhaupt eine Aktion möglich ist - siehe die
+    // ausführliche Begründung in EffectSystem und ExecuteTurn oben. Vorher
+    // tickte ein Effekt faktisch erst im Zusammenhang mit der ersten
+    // Teilaktion der Einheit, wodurch ihr rechnerisch eine zweite Aktion
+    // "übrig" blieb, obwohl sie zwischenzeitlich hätte sterben können -
+    // diese drei Tests sichern den korrigierten Zeitpunkt dauerhaft ab.
+    // -----------------------------------------------------------------
+
+    [Fact]
+    public void ExecuteTurn_EffektTicktVorJederAktionDerBetroffenenEinheit()
+    {
+        var state = NewState();
+        var unit = new TestUnit(Id(1), Team.TeamA, new HexCoordinate(0, 0), speed: 10);
+        var other = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 5), speed: 10); // außerhalb jeder Reichweite - reiner Effekt-Verursacher
+        state.AddUnit(unit);
+        state.AddUnit(other);
+
+        var dot = new EffectTemplate(Name: "Verbrennung", IsInstant: false, Duration: 3, DamagePerTick: 4);
+        EffectSystem.Apply(state, ActiveEffect.OnUnit(other, unit, dot));
+
+        var agent = new ScriptedAgent();
+        agent.Script(unit, TurnAction.EndTurn.Instance);
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+
+        int hpBefore = unit.CurrentHitPoints;
+        controller.ExecuteTurn(unit, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        Assert.Equal(hpBefore - 4, unit.CurrentHitPoints); // der Tick wirkte bereits, BEVOR überhaupt eine Aktion möglich war
+        Assert.Equal(2, state.GetEffectsOnUnit(unit.Id).Single().RemainingDuration); // Restdauer genau einmal verringert
+    }
+
+    [Fact]
+    public void ExecuteTurn_EinheitDieDurchEffektZuZugbeginnStirbt_FuehrtKeineAktionMehrAusUndPrueftSiegbedingungSofort()
+    {
+        var state = NewState();
+        var victim = new TestUnit(Id(1), Team.TeamA, new HexCoordinate(0, 0), speed: 10);
+        var enemySource = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 5), speed: 10);
+        state.AddUnit(victim);
+        state.AddUnit(enemySource);
+
+        // Tödlicher Schaden-über-Zeit-Effekt - tickt beim Zugbeginn der
+        // Einheit, noch bevor sie überhaupt gefragt wird.
+        var lethalDot = new EffectTemplate(Name: "Todesgift", IsInstant: false, Duration: 1, DamagePerTick: victim.MaxHitPoints);
+        EffectSystem.Apply(state, ActiveEffect.OnUnit(enemySource, victim, lethalDot));
+
+        var agent = new ScriptedAgent();
+        agent.Script(victim, new TurnAction.Move(new HexCoordinate(0, 1))); // darf NIE abgerufen werden
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        var result = controller.ExecuteTurn(victim, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        Assert.True(victim.IsDefeated);
+        Assert.Equal(0, agent.CallCount(victim)); // der Agent wurde nie gefragt - der Zug entfiel vollständig
+        Assert.NotNull(result); // Team A ist dadurch ausgelöscht - die Siegbedingung wurde SOFORT, noch in diesem (entfallenen) Zug, geprüft
+        Assert.Equal(MatchWinner.TeamB, result!.Winner);
+        Assert.Equal(MatchEndReason.Elimination, result.EndReason);
+    }
+
+    [Fact]
+    public void ExecuteTurn_EffektdauerVerringertSichGenauEinmalProEigenemZugDerBetroffenenEinheit()
+    {
+        var state = NewState();
+        var unit = new TestUnit(Id(1), Team.TeamA, new HexCoordinate(0, 0), speed: 10);
+        var other = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 5), speed: 10);
+        state.AddUnit(unit);
+        state.AddUnit(other);
+
+        var dot = new EffectTemplate(Name: "Verbrennung", IsInstant: false, Duration: 2, DamagePerTick: 1);
+        EffectSystem.Apply(state, ActiveEffect.OnUnit(other, unit, dot));
+
+        var agent = new ScriptedAgent(); // ungescriptet -> passt sofort in jedem Zug
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+
+        controller.ExecuteTurn(unit, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+        Assert.Equal(1, state.GetEffectsOnUnit(unit.Id).Single().RemainingDuration);
+
+        controller.ExecuteTurn(unit, agent, new Random(1), null, roundNumber: 2, startingTeam: Team.TeamA);
+        Assert.Empty(state.GetEffectsOnUnit(unit.Id)); // nach zwei eigenen Zügen (Dauer 2) abgelaufen
     }
 
     // -----------------------------------------------------------------

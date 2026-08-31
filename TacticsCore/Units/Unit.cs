@@ -82,6 +82,18 @@ public class Unit
     /// <summary>Bei einem Klon (<see cref="IsClone"/>) die Id des erzeugenden Helden; sonst null.</summary>
     public Guid? CreatorId { get; private set; }
 
+    /// <summary>
+    /// Optionaler, eigener Anzeigename - aktuell ausschließlich für Klone
+    /// gesetzt (siehe <see cref="CreateClone"/>). Ohne dieses Feld erschien
+    /// ein Klon in einer Oberfläche als anonyme "Standardfigur" (die
+    /// generische Bezeichnung für jede Nicht-Helden-Einheit), obwohl er sich
+    /// klar einem Erzeuger zuordnen lässt - Bachelorarbeit-Anforderung: "Der
+    /// Klon soll einen eigenen, vom Erzeuger abgeleiteten Namen tragen".
+    /// Null für jede andere Einheit (eine echte Standardfigur bleibt
+    /// namenlos, ein Held nutzt stattdessen <see cref="Heroes.Hero.Definition"/>).
+    /// </summary>
+    public string? DisplayNameOverride { get; private set; }
+
     public Unit(Guid id, Team team, HexCoordinate startPosition)
         : this(id, team, startPosition, UnitDefaults.MovementRange, UnitDefaults.MaxHitPoints, UnitDefaults.BaseAttackDamage, UnitDefaults.Speed, UnitDefaults.AttackRange)
     {
@@ -133,11 +145,20 @@ public class Unit
     /// Erzeuger ohnehin nur ein Klon gleichzeitig existieren darf, ist eine
     /// feste 1:1-Ableitung eindeutig und ausreichend.
     /// </summary>
-    public static Unit CreateClone(Unit creator)
+    /// <param name="creator">Die erzeugende Einheit (i.d.R. ein Held).</param>
+    /// <param name="creatorDisplayName">
+    /// Menschenlesbarer Name des Erzeugers für <see cref="DisplayNameOverride"/>
+    /// (z.B. <c>hero.Definition.DisplayName</c>) - optional, damit diese
+    /// Basisklasse selbst keine Abhängigkeit auf <see cref="Heroes.HeroDefinition"/>
+    /// braucht (Abhängigkeitsrichtung bleibt Heroes -&gt; Units). Null
+    /// (Standard) ergibt einen generischen Klon-Namen.
+    /// </param>
+    public static Unit CreateClone(Unit creator, string? creatorDisplayName = null)
     {
         var clone = new Unit(DeriveCloneId(creator.Id), creator.Team, creator.Position, creator.MovementRange, maxHitPoints: 1, baseAttackDamage: 0, speed: 0, attackRange: 0);
         clone.IsClone = true;
         clone.CreatorId = creator.Id;
+        clone.DisplayNameOverride = $"Klon von {creatorDisplayName ?? "Standardfigur"}";
         return clone;
     }
 

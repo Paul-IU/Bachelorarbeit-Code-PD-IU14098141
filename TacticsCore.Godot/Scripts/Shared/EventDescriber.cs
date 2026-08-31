@@ -19,7 +19,15 @@ public sealed class EventDescriber
 {
     private readonly Dictionary<Guid, string> _names = new();
 
-    public string Describe(ReplayEntry entry, BoardRenderModel modelAfter)
+    /// <summary>
+    /// Liefert <c>null</c> für Ereignisse, die keine eigene Protokollzeile
+    /// verdienen - aktuell nur <see cref="ReplayActionType.RoundOrderDetermined"/>
+    /// (reine Datenmeldung für die Reihenfolge-Anzeige, kein für den Menschen
+    /// lesbares Spielereignis; "Runde N beginnt" steht bereits über
+    /// RoundStarted im Protokoll). Aufrufer überspringen in diesem Fall das
+    /// Anhängen einer Zeile.
+    /// </summary>
+    public string? Describe(ReplayEntry entry, BoardRenderModel modelAfter)
     {
         foreach (var unit in modelAfter.Units)
         {
@@ -70,6 +78,8 @@ public sealed class EventDescriber
 
             ReplayActionType.RoundStarted =>
                 $"[b]== Runde {entry.RoundNumber} ==[/b]",
+
+            ReplayActionType.RoundOrderDetermined => null,
 
             ReplayActionType.MatchEnded =>
                 $"[b]Partie beendet - Sieger: {entry.Winner} ({entry.EndReason}, Runde {entry.RoundNumber})[/b]",

@@ -25,9 +25,50 @@ public partial class ActionPanel : PanelContainer
     private VBoxContainer _buttonsBox = null!;
     private VBoxContainer _fallbackListBox = null!;
     private Label _selectedUnitLabel = null!;
+    private PopupMenu _targetChoicePopup = null!;
 
     /// <summary>Die TurnActions der aktuell per Schaltfläche gewählten Kategorie (z.B. alle Bewegungsziele) - oder null, solange keine Kategorie gewählt ist.</summary>
     private List<TurnAction>? _pendingGroup;
+
+    /// <summary>
+    /// Die Kandidaten des zuletzt geöffneten Auswahl-Popups (siehe
+    /// <see cref="TryResolveBoardClick"/>) - Index entspricht der über
+    /// <see cref="PopupMenu.IdPressed"/> gemeldeten Id.
+    /// </summary>
+    private List<TurnAction> _ambiguousChoices = new();
+
+    private bool _interactionEnabled = true;
+
+    /// <summary>
+    /// Ob das Panel aktuell Eingaben annimmt - während einer Animation
+    /// (siehe EventAnimationPlayer) gesperrt (Vorgabe Teil B: "während eine
+    /// Animation läuft, sind keine Eingaben möglich"). Sperrt sowohl neu
+    /// erzeugte als auch bereits vorhandene Schaltflächen (siehe AddButton)
+    /// UND Klicks auf das Spielfeld (siehe TryResolveBoardClick).
+    /// </summary>
+    public bool InteractionEnabled
+    {
+        get => _interactionEnabled;
+        set
+        {
+            _interactionEnabled = value;
+            SetButtonsDisabled(this, !value);
+            Modulate = value ? Colors.White : new Color(1f, 1f, 1f, 0.55f); // sichtbares Feedback, dass gerade nicht interagiert werden kann
+        }
+    }
+
+    private static void SetButtonsDisabled(Node node, bool disabled)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is Button button)
+            {
+                button.Disabled = disabled;
+            }
+
+            SetButtonsDisabled(child, disabled);
+        }
+    }
 
     /// <summary>Der Benutzer hat sich endgültig für genau diesen Zug entschieden.</summary>
     public event Action<TurnAction>? ActionChosen;
@@ -43,21 +84,29 @@ public partial class ActionPanel : PanelContainer
         root.AddChild(_selectedUnitLabel);
 
         root.AddChild(new Label { Text = "Aktionen:" });
-        _buttonsBox = new VBoxContainer();
+        _buttonsBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         root.AddChild(_buttonsBox);
 
         root.AddChild(new HSeparator());
         root.AddChild(new Label { Text = "Alle legalen Züge (Fallback):" });
         var scroll = new ScrollContainer
         {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(280, 220),
+            CustomMinimumSize = new Vector2(0, 150), // nur ein Mindestboden - wächst über ExpandFill mit dem verfügbaren Platz
         };
         _fallbackListBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         scroll.AddChild(_fallbackListBox);
         root.AddChild(scroll);
 
         AddChild(root);
+
+        // Auswahl-Popup für mehrdeutige Feldklicks (Vorgabe Punkt C.6:
+        // "alle gültigen Ziele auf dem angeklickten Feld einzeln zur Auswahl
+        // anbieten") - siehe TryResolveBoardClick.
+        _targetChoicePopup = new PopupMenu();
+        _targetChoicePopup.IdPressed += OnTargetChoicePicked;
+        AddChild(_targetChoicePopup);
     }
 
     /// <summary>Vom Aufrufer (MatchScreen) aufzurufen, sobald der Mensch am Zug ist und seine legalen Züge feststehen.</summary>
@@ -83,28 +132,64 @@ public partial class ActionPanel : PanelContainer
 
     /// <summary>
     /// Von MatchScreen aufgerufen, wenn auf dem Spielfeld geklickt wurde -
-    /// versucht, den Klick der aktuell per Schaltfläche gewählten Kategorie
-    /// zuzuordnen. Stehen (durch erlaubtes Stapeln) MEHRERE Ziele auf
-    /// demselben Feld zur Wahl, gewinnt das erste - für den seltenen Fall
-    /// einer echten Mehrdeutigkeit bleibt immer die Fallback-Liste, die
-    /// jedes Ziel einzeln und eindeutig anbietet.
+    /// ordnet den Klick der aktuell per Schaltfläche gewählten Kategorie zu.
+    /// Die Kernbibliothek liefert legale Ziele bereits EINHEITENWEISE, nicht
+    /// feldweise (siehe CombatSystem.GetValidAttackTargets/AbilitySystem.GetLegalTargets,
+    /// verifiziert in CombatSystemTests) - stehen daher (durch erlaubtes
+    /// Stapeln) MEHRERE Ziele auf demselben Feld, öffnet diese Methode ein
+    /// kleines Auswahl-Popup mit JEDEM davon (Vorgabe Punkt C.6), statt
+    /// automatisch das erste zu wählen. Bei genau einem Treffer wird direkt
+    /// gewählt, bei keinem Treffer passiert nichts.
     /// </summary>
-    public TurnAction? TryResolveBoardClick(HexCoordinate clicked)
+    public void TryResolveBoardClick(HexCoordinate clicked)
     {
-        if (_pendingGroup is null)
+        if (_pendingGroup is null || !_interactionEnabled)
         {
-            return null;
+            return;
         }
 
-        foreach (var action in _pendingGroup)
+        // Reihenfolge bleibt exakt die der Kernbibliothek (stabil sortiert
+        // nach q, r, UnitId - siehe CombatSystem/AbilitySystem) - hier nur
+        // gefiltert, nicht neu sortiert (Vorgabe Punkt C.8).
+        var matches = _pendingGroup.Where(action => TargetFieldOf(action) == clicked).ToList();
+
+        switch (matches.Count)
         {
-            if (TargetFieldOf(action) == clicked)
-            {
-                return action;
-            }
+            case 0:
+                return;
+            case 1:
+                ActionChosen?.Invoke(matches[0]);
+                return;
+            default:
+                ShowTargetChoicePopup(matches);
+                return;
+        }
+    }
+
+    /// <summary>Zeigt für mehrere Ziele auf demselben Feld eine einfache Auswahlliste (Vorgabe Punkt C.6).</summary>
+    private void ShowTargetChoicePopup(List<TurnAction> matches)
+    {
+        _ambiguousChoices = matches;
+        _targetChoicePopup.Clear();
+        for (int i = 0; i < matches.Count; i++)
+        {
+            _targetChoicePopup.AddItem(DescribeAction(matches[i]), i);
         }
 
-        return null;
+        // Zentriert statt an der (hier nicht zuverlässig bekannten)
+        // Klickposition geöffnet - robust unabhängig von Bildschirm-/
+        // Skalierungsdetails, die sich visuell nicht überprüfen lassen.
+        _targetChoicePopup.PopupCentered(new Vector2I(320, Math.Min(matches.Count, 8) * 28 + 16));
+    }
+
+    private void OnTargetChoicePicked(long id)
+    {
+        if (id >= 0 && id < _ambiguousChoices.Count)
+        {
+            ActionChosen?.Invoke(_ambiguousChoices[(int)id]);
+        }
+
+        _ambiguousChoices.Clear();
     }
 
     private void BuildGroupedButtons(Unit unit, IReadOnlyList<TurnAction> legalActions)
@@ -175,9 +260,16 @@ public partial class ActionPanel : PanelContainer
         _ => null,
     };
 
-    private static void AddButton(VBoxContainer parent, string text, Action onPressed)
+    private void AddButton(VBoxContainer parent, string text, Action onPressed)
     {
-        var button = new Button { Text = text, ClipText = true };
+        var button = new Button
+        {
+            Text = text,
+            ClipText = true,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0, 32),
+            Disabled = !_interactionEnabled, // neu erzeugte Schaltflächen übernehmen den aktuellen Sperrzustand (siehe InteractionEnabled)
+        };
         button.Pressed += onPressed;
         parent.AddChild(button);
     }
@@ -191,7 +283,7 @@ public partial class ActionPanel : PanelContainer
     }
 
     private static string DescribeUnit(Unit unit) =>
-        (unit.IsClone ? "~" : "") + (unit is Hero hero ? hero.Definition.DisplayName : "Standardfigur");
+        (unit.IsClone ? "~" : "") + (unit.DisplayNameOverride ?? (unit is Hero hero ? hero.Definition.DisplayName : "Standardfigur"));
 
     /// <summary>Vollständige, eindeutige Beschreibung EINES Zuges - für die Fallback-Liste (Vorgabe Punkt 5).</summary>
     public static string DescribeAction(TurnAction action) => action switch

@@ -17,7 +17,19 @@ public partial class MainController : Control
 
     public override void _Ready()
     {
-        SetAnchorsPreset(LayoutPreset.FullRect);
+        // SetAnchorsAndOffsetsPreset() statt SetAnchorsPreset() (siehe
+        // MatchScreen für die ausführliche Begründung) - hier bei der
+        // Szenen-Wurzel zufällig unkritisch (Main.tscn bringt bereits
+        // passende Offsets mit), aber aus Konsistenz- und Robustheitsgründen
+        // überall gleich gemacht.
+        SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+
+        // Sinnvolle Mindestgröße, damit die feste linke/rechte Spalte (siehe
+        // MatchScreen/ReplayScreen) plus ein noch brauchbar großes Spielfeld
+        // in der Mitte niemals unterschritten werden kann. Bewusst über Code
+        // statt über eine project.godot-Einstellung gesetzt - robuster als
+        // eine geratene Konfigurationszeile.
+        GetWindow().MinSize = new Vector2I(1000, 650);
 
         _menuScreen = BuildMenu();
         _setupScreen = new SetupScreen { Visible = false };
@@ -43,7 +55,7 @@ public partial class MainController : Control
     private Control BuildMenu()
     {
         var container = new CenterContainer();
-        container.SetAnchorsPreset(LayoutPreset.FullRect);
+        container.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 
         var vbox = new VBoxContainer();
 

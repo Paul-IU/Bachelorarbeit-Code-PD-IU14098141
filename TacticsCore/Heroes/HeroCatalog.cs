@@ -23,6 +23,36 @@ public sealed class HeroCatalog
                 throw new ArgumentException($"Doppelte Helden-Id im Katalog: '{hero.Id}'.", nameof(heroes));
             }
         }
+
+        ValidateDistinctSpeedValues();
+    }
+
+    /// <summary>
+    /// Erzwingt, dass alle Helden dieses Katalogs PAARWEISE VERSCHIEDENE
+    /// Geschwindigkeitswerte tragen (Bachelorarbeit-Anforderung). Die
+    /// Geschwindigkeit bestimmt die Zugreihenfolge innerhalb eines Teams
+    /// (siehe <see cref="Match.TurnOrder"/>) - bei Gleichstand entscheidet
+    /// dort ersatzweise die UnitId, wodurch die Reihenfolge von der (freien)
+    /// Aufstellungsreihenfolge abhinge statt allein von den Heldenwerten.
+    /// Läuft bei JEDER Katalogerzeugung, nicht nur beim Standardkatalog -
+    /// damit fällt ein Gleichstand auch in einer per <c>with</c> oder
+    /// <see cref="HeroCatalogVariants"/> abgewandelten Balancing-Variante
+    /// sofort beim Erzeugen auf, statt erst später als schwer nachvollzieh-
+    /// bare Verzerrung der Zugreihenfolge in einer Simulation aufzufallen.
+    /// </summary>
+    private void ValidateDistinctSpeedValues()
+    {
+        var duplicateGroup = _byId.Values
+            .GroupBy(h => h.Speed)
+            .FirstOrDefault(g => g.Count() > 1);
+
+        if (duplicateGroup is not null)
+        {
+            var names = string.Join(", ", duplicateGroup.Select(h => $"{h.DisplayName} ({h.Id})"));
+            throw new ArgumentException(
+                $"Ungültiger Heldenkatalog: mehrere Helden teilen sich die Geschwindigkeit {duplicateGroup.Key} - {names}. " +
+                "Geschwindigkeitswerte müssen im gesamten Katalog paarweise verschieden sein, da sie die Zugreihenfolge bestimmen.");
+        }
     }
 
     public HeroDefinition Get(string id) =>

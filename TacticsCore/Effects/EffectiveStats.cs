@@ -44,6 +44,23 @@ public static class EffectiveStats
     public static bool IsMovementPrevented(Unit unit, GameState state) =>
         state.GetEffectsOnUnit(unit.Id).Any(e => e.PreventsMovement);
 
+    /// <summary>Ob die Einheit aktuell durch einen Effekt am Angreifen gehindert ist (siehe <see cref="ActiveEffect.PreventsAttacking"/>, z.B. Hugger während der Anheftung).</summary>
+    public static bool IsAttackingPrevented(Unit unit, GameState state) =>
+        state.GetEffectsOnUnit(unit.Id).Any(e => e.PreventsAttacking);
+
+    /// <summary>
+    /// Ob <paramref name="target"/> für einen Anwender aus
+    /// <paramref name="chooserTeam"/> aktuell als Ziel (Angriff ODER
+    /// Fähigkeit) gesperrt ist (siehe <see cref="ActiveEffect.PreventsBeingTargetedByEnemies"/>,
+    /// z.B. Hugger während der Anheftung). Bewusst TEAM-RELATIV: die Sperre
+    /// gilt ausdrücklich nur gegenüber GEGNERN - ist <paramref name="target"/>
+    /// im selben Team wie der Anwender, liefert diese Methode immer false,
+    /// unabhängig von einem aktiven Effekt (Verbündete, z.B. eine heilende
+    /// Elfe, sollen die Einheit weiterhin wählen können).
+    /// </summary>
+    public static bool PreventsBeingTargetedBy(Unit target, Team chooserTeam, GameState state) =>
+        target.Team != chooserTeam && state.GetEffectsOnUnit(target.Id).Any(e => e.PreventsBeingTargetedByEnemies);
+
     /// <summary>
     /// Ein evtl. vorhandener, einmalig zu verbrauchender Bonusschaden für
     /// den NÄCHSTEN Angriff dieser Einheit ("aufladender Eigenzustand",

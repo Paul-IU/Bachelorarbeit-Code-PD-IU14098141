@@ -12,7 +12,11 @@ namespace TacticsCore.Effects;
 /// Zuordnung der geforderten Wirkungsarten zu den Feldern hier (siehe
 /// Aufgabenstellung Punkt 8):
 ///   - Sofortschaden/-heilung          -&gt; IsInstant + InstantDamage/InstantHeal
-///   - distanzabhängige Wirkung        -&gt; ScaleWithDistance + DistanceFalloffPerStep (+ Minimum)
+///   - distanzabhängige Wirkung        -&gt; ScaleWithDistance + DistanceFalloffPerStep (+ Minimum);
+///     gilt GENERISCH sowohl für Sofortschaden/-heilung als auch für
+///     dauerhafte StatModifiers-Deltas (siehe Musiker-Lied) - ausgewertet in
+///     <see cref="Abilities.AbilitySystem.ApplyToUnit"/> bzw. dessen
+///     <c>ScaleByDistance</c>/<c>ScaleNonZeroByDistance</c>-Hilfsmethoden.
 ///   - Schaden über mehrere Runden     -&gt; DamagePerTick + Duration
 ///   - Buff/Debuff mit Dauer           -&gt; StatModifiers + Duration
 ///   - Flächen-Schadensreduktion       -&gt; IncomingDamageMultiplier + Duration (Feld-Anker)
@@ -59,7 +63,27 @@ namespace TacticsCore.Effects;
 ///     ist ein echter Sonderfall, der eine neue, generische Fähigkeit
 ///     braucht (siehe <see cref="TacticsCore.GameState.MoveUnit"/>, wo sie
 ///     ausgewertet wird - unabhängig davon, WER die Bewegung eigentlich
-///     ausgeführt hat).
+///     ausgeführt hat). Zusätzlich gilt (siehe <see cref="ActiveEffect.CausesSourceToFollowTarget"/>
+///     und <see cref="Effects.EffectSystem.Apply"/>): wird ein solcher
+///     Effekt neu angelegt, wird die Quelle SOFORT auf das aktuelle Feld
+///     des Ziels gezogen, nicht erst bei dessen NÄCHSTER Bewegung (siehe
+///     Hugger-Korrektur, Bachelorarbeit-Anforderung "sofort wechseln").
+///   - PreventsAttacking: generische Angriffssperre für die tragende
+///     Einheit selbst (Hugger: "kann selbst nicht angreifen, solange die
+///     Anheftung aktiv ist"). Bewusst getrennt von
+///     <see cref="PreventsMovement"/>, da beide Einschränkungen unabhängig
+///     voneinander vorkommen können (z.B. Bogenschütze: bewegungsunfähig
+///     beim Laden, aber weiterhin angriffsfähig).
+///   - PreventsBeingTargetedByEnemies: generische Unangreifbarkeit GEGENÜBER
+///     GEGNERN (Hugger: "kein gültiges Angriffs- oder Fähigkeitsziel für
+///     Gegner", solange die Anheftung aktiv ist - Verbündete dürfen ihn
+///     weiterhin z.B. heilen). Ersetzt bei Hugger die vorherige pauschale
+///     Schadensreduktion: eine unangreifbare Einheit kann gar nicht erst
+///     zum Ziel werden, eine Reduktion des (dann nie eintretenden)
+///     Schadens wäre redundant. Team-relativ ausgewertet (siehe
+///     <see cref="Effects.EffectiveStats.PreventsBeingTargetedBy"/>), nicht
+///     als absolute Sperre - sonst könnten auch Verbündete die Einheit
+///     nicht mehr als Ziel wählen.
 /// </summary>
 public sealed record EffectTemplate(
     string Name,
@@ -83,4 +107,6 @@ public sealed record EffectTemplate(
     bool SpawnsClone = false,
     bool AppliesToCaster = false,
     string? CancelEffectName = null,
-    bool CausesSourceToFollowTarget = false);
+    bool CausesSourceToFollowTarget = false,
+    bool PreventsAttacking = false,
+    bool PreventsBeingTargetedByEnemies = false);

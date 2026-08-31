@@ -64,16 +64,24 @@ public sealed class ActiveEffect
     /// <see cref="SourceUnitId"/> automatisch auf dasselbe Feld mitgezogen
     /// (siehe <see cref="TacticsCore.GameState.MoveUnit"/> und Hugger).
     /// Ergibt nur bei einem unit-verankerten Effekt Sinn, dessen Ziel NICHT
-    /// die Quelle selbst ist.
+    /// die Quelle selbst ist. Zusätzlich zieht bereits <see cref="Effects.EffectSystem.Apply"/>
+    /// die Quelle SOFORT beim Anlegen dieses Effekts auf das aktuelle Feld
+    /// des Ziels (nicht erst bei dessen nächster Bewegung).
     /// </summary>
     public bool CausesSourceToFollowTarget { get; }
+
+    /// <summary>Siehe <see cref="EffectTemplate.PreventsAttacking"/>.</summary>
+    public bool PreventsAttacking { get; }
+
+    /// <summary>Siehe <see cref="EffectTemplate.PreventsBeingTargetedByEnemies"/>.</summary>
+    public bool PreventsBeingTargetedByEnemies { get; }
 
     private ActiveEffect(
         string name, Guid sourceUnitId, EffectAnchorType anchorType, Guid? targetUnitId, HexCoordinate? targetField,
         int? duration, StackingRule stacking, StatModifierSet? statModifiers, int? damagePerTick,
         double? incomingDamageMultiplier, bool preventsMovement, Team? fieldLockAgainstTeam,
         bool redirectsAttacksToSource, int? bonusDamageForNextAttack, int? maximumAccumulatedBonusDamage,
-        bool causesSourceToFollowTarget)
+        bool causesSourceToFollowTarget, bool preventsAttacking, bool preventsBeingTargetedByEnemies)
     {
         Name = name;
         SourceUnitId = sourceUnitId;
@@ -91,6 +99,8 @@ public sealed class ActiveEffect
         BonusDamageForNextAttack = bonusDamageForNextAttack;
         MaximumAccumulatedBonusDamage = maximumAccumulatedBonusDamage;
         CausesSourceToFollowTarget = causesSourceToFollowTarget;
+        PreventsAttacking = preventsAttacking;
+        PreventsBeingTargetedByEnemies = preventsBeingTargetedByEnemies;
     }
 
     /// <summary>Erzeugt einen an eine Einheit gebundenen Effekt (Buff/Debuff, DoT, Bewegungssperre, Anheftung, Angriffsbonus, ...).</summary>
@@ -99,7 +109,9 @@ public sealed class ActiveEffect
         template.Duration, template.Stacking, template.StatModifiers, template.DamagePerTick,
         template.IncomingDamageMultiplier, template.PreventsMovement, fieldLockAgainstTeam: null,
         redirectsAttacksToSource: false, template.BonusDamageForNextAttack, template.MaximumAccumulatedBonusDamage,
-        causesSourceToFollowTarget: template.CausesSourceToFollowTarget && target.Id != source.Id);
+        causesSourceToFollowTarget: template.CausesSourceToFollowTarget && target.Id != source.Id,
+        preventsAttacking: template.PreventsAttacking,
+        preventsBeingTargetedByEnemies: template.PreventsBeingTargetedByEnemies);
 
     /// <summary>Erzeugt einen an ein Feld gebundenen Effekt (Flächen-Schadensreduktion, Feldsperre, Angriffs-Umleitung).</summary>
     public static ActiveEffect OnField(Unit source, HexCoordinate field, EffectTemplate template) => new(
@@ -110,7 +122,9 @@ public sealed class ActiveEffect
         redirectsAttacksToSource: template.RedirectsAttacksToSource,
         bonusDamageForNextAttack: template.BonusDamageForNextAttack,
         maximumAccumulatedBonusDamage: template.MaximumAccumulatedBonusDamage,
-        causesSourceToFollowTarget: false);
+        causesSourceToFollowTarget: false,
+        preventsAttacking: false,
+        preventsBeingTargetedByEnemies: false);
 
     private static Team OppositeTeamOf(Team team) => team == Team.TeamA ? Team.TeamB : Team.TeamA;
 

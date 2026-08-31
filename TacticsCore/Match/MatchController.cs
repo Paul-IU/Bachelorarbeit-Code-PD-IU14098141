@@ -182,6 +182,16 @@ public sealed class MatchController
             // Zugreihenfolge unmittelbar nach seinem Erzeuger").
             var roundOrder = new List<Unit>(TurnOrder.ComputeRoundOrder(_state.Units, startingTeam));
 
+            // Nach außen melden, WELCHE Reihenfolge soeben bestimmt wurde
+            // (siehe ReplayActionType.RoundOrderDetermined) - eine
+            // Oberfläche soll diese Berechnung niemals selbst wiederholen
+            // müssen, sondern exakt diesen bereits ermittelten Wert
+            // übernehmen können. Rein informativ, verändert _state nicht.
+            if (ShouldEmit(replayEntries))
+            {
+                Emit(replayEntries, ReplayEntry.ForRoundOrderDetermined(roundNumber, roundOrder.Select(u => u.Id).ToList()));
+            }
+
             for (int i = 0; i < roundOrder.Count; i++)
             {
                 var unit = roundOrder[i];
@@ -324,6 +334,52 @@ public sealed class MatchController
     /// Reihenfolge und das Passen für EINEN Zug gezielt und ohne
     /// vollständigen <see cref="Run"/>-Durchlauf (der ansonsten bis zu 100
     /// Runden laufen würde) direkt prüfen können.
+    ///
+    /// BACHELORARBEIT-BEGRÜNDUNG DES EFFEKT-ZEITPUNKTS (Punkt D der
+    /// Korrektur-Anforderungen): der Tick eines dauerhaften Effekts
+    /// (Schaden über Zeit wie "Verbrennung", aber auch das Ablaufen JEDER
+    /// Effektdauer sowie das Verringern einer laufenden Fähigkeits-
+    /// Abklingzeit) erfolgt GENAU EINMAL, GANZ ZU BEGINN des Zugs der
+    /// betroffenen Einheit - siehe die Aufrufe von
+    /// <see cref="Effects.EffectSystem.TickUnitEffects"/> und
+    /// <see cref="Heroes.Hero.TickAbilityCooldown"/> unten, beide VOR der
+    /// While-Schleife, die den Agenten nach Teilaktionen fragt. Das gilt
+    /// unabhängig davon, was die Einheit in diesem Zug tut oder ob sie
+    /// überhaupt etwas tut.
+    ///
+    /// Frühere/naive Alternative wäre gewesen, einen Effekt erst im
+    /// Zusammenhang mit der ERSTEN Teilaktion der Einheit (z.B. beim ersten
+    /// Bewegungs- oder Angriffsversuch) ticken zu lassen. Das wurde bewusst
+    /// verworfen, aus zwei Gründen:
+    ///   1. UNABHÄNGIGKEIT VOM AGENTENVERHALTEN: tickt ein Effekt erst
+    ///      "irgendwann während des Zugs", hinge der genaue Zeitpunkt (und
+    ///      damit z.B., ob die Einheit VOR oder NACH dem tödlichen Tick noch
+    ///      handeln kann) vom Verhalten des jeweiligen Agenten ab -
+    ///      passiert eine Einheit sofort (kein Bewegungs-/Angriffsversuch),
+    ///      hätte der Effekt in einer aktions-gekoppelten Variante unter
+    ///      Umständen NIE getickt. Ein an einen festen ZEITPUNKT im
+    ///      Rundenablauf gebundenes Ticken (Zugbeginn) ist dagegen für JEDEN
+    ///      Agenten (Zufall, Mensch, spätere KI) identisch und deterministisch
+    ///      reproduzierbar - eine notwendige Voraussetzung für die spätere
+    ///      Massen-Simulation (Batch-Läufe über tausende Partien), bei der
+    ///      Agentenverhalten variiert, die Regelanwendung selbst aber nicht.
+    ///   2. STERBEN VOR DEM EIGENEN ZUG MUSS MÖGLICH SEIN: eine Einheit, die
+    ///      durch einen tickenden Effekt (Gift, Verbrennung, ...) genug
+    ///      Schaden nimmt, um zu sterben, darf in DIESEM Zug KEINE Aktion
+    ///      mehr ausführen - alles andere wäre unplausibel ("stirbt an
+    ///      Vergiftung, greift danach trotzdem noch an") und würde der
+    ///      besiegten Einheit faktisch eine zusätzliche, unverdiente Aktion
+    ///      verschaffen. Mit Ticken vor der Aktionsschleife (siehe die
+    ///      IsDefeated-Prüfung direkt nach dem Tick unten) entfällt der Zug
+    ///      in diesem Fall ERSATZLOS: der Agent wird kein einziges Mal
+    ///      gefragt (siehe <c>agent.CallCount</c> in den zugehörigen Tests),
+    ///      und die Siegbedingung wird SOFORT geprüft - eine Partie kann
+    ///      also bereits durch einen reinen Effekt-Tick enden, ohne dass in
+    ///      diesem Zug überhaupt eine TurnAction ausgeführt wurde.
+    /// Siehe MatchControllerTests ("EFFEKT-ZEITPUNKT"-Abschnitt) für die
+    /// automatisierten Tests, die genau diese drei Eigenschaften (Tick vor
+    /// jeder Aktion, Zug entfällt bei Tod, Dauer sinkt genau einmal je
+    /// eigenem Zug) dauerhaft absichern.
     /// </remarks>
     /// <returns>Das Partieergebnis, falls die Partie während dieses Zugs endet; sonst null.</returns>
     internal MatchResult? ExecuteTurn(Unit unit, IAgent agent, Random random, List<ReplayEntry>? replayEntries, int roundNumber, Team startingTeam)

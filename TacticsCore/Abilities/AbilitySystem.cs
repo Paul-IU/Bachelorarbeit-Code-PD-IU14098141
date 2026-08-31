@@ -59,9 +59,19 @@ public static class AbilitySystem
         }
         else
         {
+            // Modi, die das gewählte Ziel ohnehin ignorieren (siehe
+            // AbilityMode.IgnoresChosenTarget, z.B. Hugger "Lösen"), werden
+            // GENAU EINMAL angeboten - mit dem Anwender selbst als rein
+            // technischem Platzhalter-Ziel -, statt einmal je Zielkandidat
+            // sinnlos vervielfacht zu werden.
+            foreach (var mode in ability.Modes.Where(m => m.IgnoresChosenTarget && (m.IsLegal is null || m.IsLegal(hero, state))))
+            {
+                options.Add(new AbilityUseOption(new AbilityTarget.UnitTarget(hero), mode));
+            }
+
             foreach (var target in targets)
             {
-                foreach (var mode in ability.Modes.Where(m => m.IsLegal is null || m.IsLegal(hero, state)))
+                foreach (var mode in ability.Modes.Where(m => !m.IgnoresChosenTarget && (m.IsLegal is null || m.IsLegal(hero, state))))
                 {
                     options.Add(new AbilityUseOption(target, mode));
                 }
@@ -134,6 +144,14 @@ public static class AbilitySystem
             return false;
         }
 
+        if (mode?.IgnoresChosenTarget == true)
+        {
+            // Das übergebene Ziel ist bei einem solchen Modus nur ein
+            // technischer Platzhalter (siehe AbilityMode.IgnoresChosenTarget)
+            // - die sonst übliche Ziel-Gültigkeitsprüfung entfällt bewusst.
+            return true;
+        }
+
         return target switch
         {
             AbilityTarget.UnitTarget u => IsValidUnitTarget(hero, ability, u.Unit, state),
@@ -154,10 +172,22 @@ public static class AbilitySystem
             return false;
         }
 
+        // Generische Unangreifbarkeit gegenüber Gegnern (siehe
+        // EffectTemplate.PreventsBeingTargetedByEnemies, z.B. Hugger während
+        // der Anheftung) - team-relativ, ein Verbündeter des Ziels
+        // (einschließlich des Ziels selbst, siehe AbilityTargetType.Self/Ally)
+        // ist davon nie betroffen.
+        if (EffectiveStats.PreventsBeingTargetedBy(target, hero.Team, state))
+        {
+            return false;
+        }
+
         return ability.TargetType switch
         {
             AbilityTargetType.Self => target.Id == hero.Id,
-            AbilityTargetType.Ally => target.Team == hero.Team && target.Id != hero.Id && !target.IsClone,
+            // "Verbündet" schließt den Anwender selbst mit ein - siehe
+            // AbilityTargetType.Ally für die Begründung (Elfe: Selbstheilung).
+            AbilityTargetType.Ally => target.Team == hero.Team && !target.IsClone,
             AbilityTargetType.Enemy => target.Team != hero.Team,
             AbilityTargetType.AnyUnit => target.Id != hero.Id && !target.IsClone,
             _ => false,
@@ -187,9 +217,11 @@ public static class AbilitySystem
                 return new AbilityTarget[] { new AbilityTarget.UnitTarget(hero) };
 
             case AbilityTargetType.Ally:
+                // Schließt den Anwender selbst mit ein - siehe
+                // AbilityTargetType.Ally (Elfe: Selbstheilung).
                 return FieldsInRange(hero, ability.Range, state)
                     .SelectMany(state.GetUnitsAt)
-                    .Where(u => !u.IsDefeated && u.Team == hero.Team && u.Id != hero.Id && !u.IsClone)
+                    .Where(u => !u.IsDefeated && u.Team == hero.Team && !u.IsClone)
                     .Select(u => (AbilityTarget)new AbilityTarget.UnitTarget(u))
                     .ToList();
 
@@ -197,6 +229,7 @@ public static class AbilitySystem
                 return FieldsInRange(hero, ability.Range, state)
                     .SelectMany(state.GetUnitsAt)
                     .Where(u => !u.IsDefeated && u.Team != hero.Team)
+                    .Where(u => !EffectiveStats.PreventsBeingTargetedBy(u, hero.Team, state))
                     .Select(u => (AbilityTarget)new AbilityTarget.UnitTarget(u))
                     .ToList();
 
@@ -204,6 +237,7 @@ public static class AbilitySystem
                 return FieldsInRange(hero, ability.Range, state)
                     .SelectMany(state.GetUnitsAt)
                     .Where(u => !u.IsDefeated && u.Id != hero.Id && !u.IsClone)
+                    .Where(u => !EffectiveStats.PreventsBeingTargetedBy(u, hero.Team, state))
                     .Select(u => (AbilityTarget)new AbilityTarget.UnitTarget(u))
                     .ToList();
 
@@ -300,6 +334,12 @@ public static class AbilitySystem
                     AreaTargetFilter.EnemiesOnly => u.Team != source.Team,
                     _ => true,
                 })
+                // Generische Unangreifbarkeit gegenüber Gegnern gilt auch
+                // für Flächenwirkungen (siehe EffectTemplate.PreventsBeingTargetedByEnemies) -
+                // betrifft ausschließlich Einheiten aus einem ANDEREN Team
+                // als die Quelle, ein verbündeter Flächen-Buff bleibt also
+                // unberührt.
+                .Where(u => !EffectiveStats.PreventsBeingTargetedBy(u, source.Team, state))
                 .OrderBy(u => u.Position.Q).ThenBy(u => u.Position.R).ThenBy(u => u.Id)
                 .ToList();
 
@@ -357,7 +397,7 @@ public static class AbilitySystem
                     replayEntries?.Add(ReplayEntry.ForCloneDespawned(roundNumber, existingClone.Id, existingClone.Team, source.Id));
                 }
 
-                state.AddUnit(Unit.CreateClone(source));
+                state.AddUnit(Unit.CreateClone(source, source.Definition.DisplayName));
             }
 
             return;
@@ -370,10 +410,31 @@ public static class AbilitySystem
             ? template with { StatModifiers = template.StatModifiersForEnemy }
             : template;
 
+        // Entfernungsabhängige Skalierung (siehe ScaleByDistance) gilt
+        // GENERISCH nicht nur für Sofortschaden/-heilung, sondern auch für
+        // dauerhafte Stat-Modifikatoren (Anforderung: Musiker-Lied) - jedes
+        // der vier Delta-Felder wird unabhängig über dieselbe Formel
+        // skaliert. Ein Delta von 0 bleibt dabei bewusst 0 (nicht negativ) -
+        // ein nicht genutztes Feld (z.B. MovementRangeDelta bei einem reinen
+        // Schadensbonus) soll durch die Entfernung nicht erst zu einer
+        // eigenen, ungewollten Wirkung werden.
+        if (effectiveTemplate.ScaleWithDistance && effectiveTemplate.StatModifiers is { } baseModifiers)
+        {
+            var scaledModifiers = new StatModifierSet(
+                ScaleNonZeroByDistance(baseModifiers.BaseAttackDamageDelta, distance, effectiveTemplate),
+                ScaleNonZeroByDistance(baseModifiers.MovementRangeDelta, distance, effectiveTemplate),
+                ScaleNonZeroByDistance(baseModifiers.AttackRangeDelta, distance, effectiveTemplate),
+                ScaleNonZeroByDistance(baseModifiers.SpeedDelta, distance, effectiveTemplate));
+            effectiveTemplate = effectiveTemplate with { StatModifiers = scaledModifiers };
+        }
+
         // Nicht-instantane (dauerhafte) Effekte werden als ActiveEffect
         // angelegt - inklusive Stapelregel (siehe EffectSystem.Apply).
         EffectSystem.Apply(state, ActiveEffect.OnUnit(source, target, effectiveTemplate), replayEntries, roundNumber);
     }
+
+    private static int ScaleNonZeroByDistance(int value, int distance, EffectTemplate template) =>
+        value == 0 ? 0 : ScaleByDistance(value, distance, template);
 
     /// <summary>
     /// Lineare Entfernungsskalierung (Anforderung 8): pro Distanzschritt

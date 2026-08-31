@@ -48,7 +48,7 @@ public static class EffectSystem
         var existing = FindMatching(state, effect);
         if (existing is null)
         {
-            state.AddEffect(effect);
+            AddEffectAndSnapIfNeeded(state, effect);
             LogApplied(effect, replayEntries, roundNumber);
             return;
         }
@@ -58,7 +58,7 @@ public static class EffectSystem
             case StackingRule.Replace:
             case StackingRule.ReplaceForSameSource:
                 state.RemoveEffect(existing);
-                state.AddEffect(effect);
+                AddEffectAndSnapIfNeeded(state, effect);
                 LogApplied(effect, replayEntries, roundNumber);
                 break;
 
@@ -84,9 +84,36 @@ public static class EffectSystem
 
             case StackingRule.Stack:
             default:
-                state.AddEffect(effect);
+                AddEffectAndSnapIfNeeded(state, effect);
                 LogApplied(effect, replayEntries, roundNumber);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Legt den Effekt an und zieht - falls er die Quelle räumlich an ihr
+    /// Ziel bindet (<see cref="ActiveEffect.CausesSourceToFollowTarget"/>,
+    /// siehe Hugger) - die Quelle SOFORT auf das aktuelle Feld des Ziels,
+    /// statt erst auf dessen NÄCHSTE Bewegung zu warten (Bachelorarbeit-
+    /// Anforderung: "die Anheftung soll den Hugger sofort auf das Feld des
+    /// Ziels wechseln lassen"). Nur an DIESER einen Stelle nötig: das
+    /// spätere Mitziehen bei jeder weiteren Bewegung übernimmt bereits
+    /// generisch <see cref="TacticsCore.GameState.MoveUnit"/>.
+    /// </summary>
+    private static void AddEffectAndSnapIfNeeded(GameState state, ActiveEffect effect)
+    {
+        state.AddEffect(effect);
+
+        if (!effect.CausesSourceToFollowTarget || effect.AnchorType != EffectAnchorType.Unit || effect.TargetUnitId is not Guid targetId)
+        {
+            return;
+        }
+
+        var source = state.Units.FirstOrDefault(u => u.Id == effect.SourceUnitId);
+        var target = state.Units.FirstOrDefault(u => u.Id == targetId);
+        if (source is not null && target is not null && source.Position != target.Position)
+        {
+            state.MoveUnit(source, target.Position);
         }
     }
 

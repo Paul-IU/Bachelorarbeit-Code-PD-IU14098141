@@ -134,7 +134,12 @@ public class NewHeroesTests
     public void Illusionist_ErneuterEinsatzErsetztDenBestehendenKlon()
     {
         var state = NewState();
-        var illusionist = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Illusionist);
+        // Abklingzeit für DIESEN Test bewusst deaktiviert: er prüft gezielt
+        // die Klon-Ersetzungsmechanik (zwei Einsätze unmittelbar
+        // hintereinander) - die separate Abklingzeit-Regel (Punkt E) hat
+        // ihre eigene, dedizierte Testabdeckung weiter unten.
+        var definitionOhneAbklingzeit = DefaultHeroes.Illusionist with { Ability = DefaultHeroes.Illusionist.Ability with { CooldownRounds = null } };
+        var illusionist = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 0), definitionOhneAbklingzeit);
         state.AddUnit(illusionist);
 
         AbilitySystem.TryUseAbility(illusionist, new AbilityTarget.UnitTarget(illusionist), state);
@@ -145,6 +150,21 @@ public class NewHeroesTests
         Assert.Single(state.Units, u => u.IsClone);
         Assert.True(firstClone.IsDefeated);
         Assert.DoesNotContain(firstClone, state.Units);
+    }
+
+    [Fact]
+    public void Illusionist_KlonTraegtEinenVomErzeugerAbgeleitetenEigenenNamenStattStandardfigur()
+    {
+        var state = NewState();
+        var illusionist = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Illusionist);
+        state.AddUnit(illusionist);
+
+        AbilitySystem.TryUseAbility(illusionist, new AbilityTarget.UnitTarget(illusionist), state);
+        var clone = state.Units.Single(u => u.IsClone);
+
+        Assert.NotNull(clone.DisplayNameOverride);
+        Assert.Contains(illusionist.Definition.DisplayName, clone.DisplayNameOverride);
+        Assert.NotEqual("Standardfigur", clone.DisplayNameOverride);
     }
 
     [Fact]
@@ -249,9 +269,56 @@ public class NewHeroesTests
         Assert.Equal(ally.BaseAttackDamage, EffectiveStats.AttackDamage(ally, state));
     }
 
+    [Fact]
+    public void Musiker_KampfliedIstAufGroessererDistanzSchwaecher()
+    {
+        // Bachelorarbeit-Ergänzung: dieselbe distanzabhängige Mechanik wie
+        // bei der Elfe-Heilung, jetzt generisch auch für den dauerhaften
+        // Stat-Modifikator des Liedes (siehe AbilitySystem.ApplyToUnit).
+        var state = NewState();
+        var musiker = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 2), DefaultHeroes.Musiker);
+        var allyNear = new TestUnit(Id(2), Team.TeamA, new HexCoordinate(0, 1), speed: 10); // Distanz 1
+        var allyFar = new TestUnit(Id(3), Team.TeamA, new HexCoordinate(0, 0), speed: 10); // Distanz 2
+        state.AddUnit(musiker);
+        state.AddUnit(allyNear);
+        state.AddUnit(allyFar);
+
+        var kampflied = musiker.Definition.Ability.Modes!.Single(m => m.Id == "kampflied");
+        Assert.True(AbilitySystem.TryUseAbility(musiker, new AbilityTarget.FieldTarget(musiker.Position), state, kampflied));
+
+        int bonusNear = EffectiveStats.AttackDamage(allyNear, state) - allyNear.BaseAttackDamage;
+        int bonusFar = EffectiveStats.AttackDamage(allyFar, state) - allyFar.BaseAttackDamage;
+
+        Assert.Equal(2, bonusNear); // Distanz 1: +3 - 1*1
+        Assert.Equal(1, bonusFar);  // Distanz 2: +3 - 1*2
+        Assert.True(bonusFar < bonusNear); // auf größerer Distanz schwächer
+    }
+
     // -----------------------------------------------------------------
     // HUGGER
     // -----------------------------------------------------------------
+
+    private static AbilityMode GreifenMode(Hero hugger) => hugger.Definition.Ability.Modes!.Single(m => m.Id == "greifen");
+    private static AbilityMode LoesenMode(Hero hugger) => hugger.Definition.Ability.Modes!.Single(m => m.Id == "loesen");
+
+    [Fact]
+    public void Hugger_AnheftungBewegtHuggerSofortAufDasZielfeldOhneAufDieNaechsteBewegungZuWarten()
+    {
+        var state = NewState();
+        // Bewusst NICHT benachbart (Distanz 2) - eine Implementierung, die
+        // Hugger versehentlich nur bei bereits angrenzendem Ziel "zufällig"
+        // richtig platziert, würde diesen Test nicht bestehen.
+        var hugger = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Hugger);
+        var ally = new TestUnit(Id(2), Team.TeamA, new HexCoordinate(0, 2), speed: 10);
+        state.AddUnit(hugger);
+        state.AddUnit(ally);
+
+        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state, GreifenMode(hugger)));
+
+        // Sofort nach dem Einsatz - VOR jeder weiteren Bewegung des Ziels -
+        // steht Hugger bereits auf demselben Feld wie sein Ziel.
+        Assert.Equal(ally.Position, hugger.Position);
+    }
 
     [Fact]
     public void Hugger_AnheftungBewegtSichMitDemZielMitUndZiehtHuggerRaeumlichMit()
@@ -262,7 +329,7 @@ public class NewHeroesTests
         state.AddUnit(hugger);
         state.AddUnit(ally);
 
-        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state));
+        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state, GreifenMode(hugger)));
         Assert.True(ally.TryMove(new HexCoordinate(-1, 2), state));
 
         Assert.NotEmpty(state.GetEffectsOnUnit(ally.Id)); // Effekt ist an die EINHEIT gebunden, nicht an das Feld
@@ -281,7 +348,7 @@ public class NewHeroesTests
         state.AddUnit(ally);
 
         Assert.NotEmpty(hugger.GetLegalMoves(state));
-        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state));
+        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state, GreifenMode(hugger)));
         Assert.Empty(hugger.GetLegalMoves(state));
     }
 
@@ -295,13 +362,15 @@ public class NewHeroesTests
         state.AddUnit(hugger);
         state.AddUnit(ally);
         state.AddUnit(enemy);
+        var greifen = GreifenMode(hugger);
 
-        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state));
+        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state, greifen));
         Assert.True(EffectiveStats.AttackDamage(ally, state) > ally.BaseAttackDamage);
 
         // Erneuter Einsatz auf ein ANDERES (gegnerisches) Ziel ersetzt die
-        // Anheftung - "nur eine Anheftung gleichzeitig".
-        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(enemy), state));
+        // Anheftung - "nur eine Anheftung gleichzeitig" bzw. "auf ein
+        // anderes Ziel wechseln".
+        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(enemy), state, greifen));
 
         Assert.Equal(ally.BaseAttackDamage, EffectiveStats.AttackDamage(ally, state)); // Bonus beim alten Ziel weg
         Assert.True(EffectiveStats.AttackDamage(enemy, state) < enemy.BaseAttackDamage); // Abzug beim neuen Ziel
@@ -309,18 +378,67 @@ public class NewHeroesTests
     }
 
     [Fact]
-    public void Hugger_NimmtSelbstNurReduziertenAnteilDesEingehendenSchadensSolangeAngeheftetIst()
+    public void Hugger_IstWaehrendDerAnheftungKeinGueltigesZielFuerGegnerAberWeiterhinFuerVerbuendete()
     {
         var state = NewState();
         var hugger = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Hugger);
         var ally = new TestUnit(Id(2), Team.TeamA, new HexCoordinate(0, 2), speed: 10);
+        var enemyAttacker = new TestUnit(Id(3), Team.TeamB, new HexCoordinate(0, 0), speed: 10);
+        // Elementarmagier statt Elfe für den Gegner-Fähigkeitscheck: seine
+        // Fähigkeit zielt auf AbilityTargetType.Enemy - ein Elfe-Check wäre
+        // hier bedeutungslos, da "Ally" ohnehin nie einen Gegner einschließt.
+        var enemyCaster = new Hero(Id(4), Team.TeamB, new HexCoordinate(0, 0), DefaultHeroes.Elementarmagier);
+        var healer = new Hero(Id(5), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Elfe); // teilt sich das Feld mit Hugger
         state.AddUnit(hugger);
         state.AddUnit(ally);
-        AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state);
+        state.AddUnit(enemyAttacker);
+        state.AddUnit(healer);
 
-        CombatSystem.ApplyDamageAndHandleDefeat(state, hugger, 20);
+        Assert.Contains(hugger, enemyAttacker.GetLegalAttacks(state)); // vorher ein gültiges Ziel
+        AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state, GreifenMode(hugger));
 
-        Assert.Equal(hugger.MaxHitPoints - 10, hugger.CurrentHitPoints); // 50% von 20 = 10
+        Assert.DoesNotContain(hugger, enemyAttacker.GetLegalAttacks(state)); // jetzt kein gültiges Angriffsziel mehr
+        Assert.False(CombatSystem.TryAttack(enemyAttacker, hugger, state)); // auch ein direkter Versuch schlägt fehl
+
+        state.AddUnit(enemyCaster);
+        Assert.DoesNotContain(
+            AbilitySystem.GetLegalAbilityUses(enemyCaster, state),
+            o => o.Target is AbilityTarget.UnitTarget u && u.Unit.Id == hugger.Id); // auch kein Fähigkeitsziel für Gegner
+
+        hugger.ApplyDamage(10); // verletzen, damit die Heilung unten sichtbar wirkt
+        Assert.True(AbilitySystem.TryUseAbility(healer, new AbilityTarget.UnitTarget(hugger), state)); // Verbündete können weiterhin zielen
+    }
+
+    [Fact]
+    public void Hugger_KannWaehrendDerAnheftungNichtAngreifenAberDieAnheftungLoesen()
+    {
+        var state = NewState();
+        var hugger = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Hugger);
+        // Verbündeter teilt sich bewusst das Feld MIT Hugger: das sofortige
+        // Nachziehen beim Greifen (Punkt A.1) verändert Huggers Position
+        // dadurch nicht, was diesen Test unabhängig von dieser (an anderer
+        // Stelle bereits eigens geprüften) Mechanik hält.
+        var ally = new TestUnit(Id(2), Team.TeamA, new HexCoordinate(0, 1), speed: 10);
+        var enemy = new TestUnit(Id(3), Team.TeamB, new HexCoordinate(0, 0), speed: 10);
+        state.AddUnit(hugger);
+        state.AddUnit(ally);
+        state.AddUnit(enemy);
+
+        Assert.NotEmpty(hugger.GetLegalAttacks(state)); // vorher normal angriffsfähig
+        Assert.DoesNotContain(AbilitySystem.GetLegalAbilityUses(hugger, state), o => o.Mode?.Id == "loesen"); // "Lösen" noch nicht wählbar
+
+        AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state, GreifenMode(hugger));
+
+        Assert.Empty(hugger.GetLegalAttacks(state)); // keine Angriffszüge mehr
+        Assert.False(hugger.TryAttack(enemy, state));
+        Assert.Contains(AbilitySystem.GetLegalAbilityUses(hugger, state), o => o.Mode?.Id == "loesen"); // jetzt wählbar
+        Assert.Contains(AbilitySystem.GetLegalAbilityUses(hugger, state), o => o.Mode?.Id == "greifen"); // Ziel wechseln bleibt ebenfalls möglich
+
+        Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(hugger), state, LoesenMode(hugger)));
+
+        Assert.Empty(state.ActiveEffects); // Anheftung, Wirkung beim Ziel UND eigene Sperren vollständig aufgelöst
+        Assert.NotEmpty(hugger.GetLegalAttacks(state)); // wieder normal angriffsfähig
+        Assert.NotEmpty(hugger.GetLegalMoves(state));
     }
 
     [Fact]
@@ -333,13 +451,13 @@ public class NewHeroesTests
         state.AddUnit(hugger);
         state.AddUnit(ally);
         state.AddUnit(attacker);
-        AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state);
-        Assert.NotEmpty(state.GetEffectsOnUnit(hugger.Id)); // eigene Schadensreduktion aktiv
+        AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state, GreifenMode(hugger));
+        Assert.NotEmpty(state.GetEffectsOnUnit(hugger.Id)); // eigene Bewegungs-/Angriffssperre und Unangreifbarkeit aktiv
 
         CombatSystem.ApplyDamageAndHandleDefeat(state, attacker, ally, ally.MaxHitPoints);
 
         Assert.True(ally.IsDefeated);
-        Assert.Empty(state.GetEffectsOnUnit(hugger.Id)); // Anheftung UND eigene Schadensreduktion enden gemeinsam
+        Assert.Empty(state.GetEffectsOnUnit(hugger.Id)); // Anheftung UND eigene Sperren enden gemeinsam
         Assert.Empty(state.ActiveEffects);
     }
 
@@ -398,6 +516,57 @@ public class NewHeroesTests
         Assert.Equal(2, options.Count); // ein Ziel, zwei Modi
         Assert.Contains(options, o => o.Mode?.Id == "feuer");
         Assert.Contains(options, o => o.Mode?.Id == "erde");
+    }
+
+    // -----------------------------------------------------------------
+    // ABKLINGZEIT (Punkt E) - hier stellvertretend am Elementarmagier
+    // geprüft, da dessen strukturelle Dominanz der eigentliche Auslöser für
+    // die Einführung der Abklingzeit war; der Mechanismus selbst
+    // (Hero.AbilityCooldownRemaining/TickAbilityCooldown) ist bereits
+    // vollständig generisch und gilt für jeden Helden mit gesetztem
+    // AbilityDefinition.CooldownRounds gleichermaßen (siehe Schildträger,
+    // Illusionist, Musiker).
+    // -----------------------------------------------------------------
+
+    [Fact]
+    public void Abklingzeit_FaehigkeitIstNachEinsatzGesperrtUndTauchtNichtInDerZuglisteAuf()
+    {
+        var state = NewState();
+        var mage = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Elementarmagier);
+        var enemy = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 2), speed: 10);
+        state.AddUnit(mage);
+        state.AddUnit(enemy);
+        var feuer = mage.Definition.Ability.Modes!.Single(m => m.Id == "feuer");
+
+        Assert.True(AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, feuer));
+
+        Assert.Equal(2, mage.AbilityCooldownRemaining); // Teil des Spielzustands, direkt auslesbar
+        Assert.Empty(AbilitySystem.GetLegalAbilityUses(mage, state)); // während der Abklingzeit keine Fähigkeit wählbar
+        Assert.False(AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, feuer)); // auch ein direkter Versuch schlägt fehl
+    }
+
+    [Fact]
+    public void Abklingzeit_VerringertSichZuBeginnJedesEigenenZugsUndGibtDieFaehigkeitDanachWiederFrei()
+    {
+        var state = NewState();
+        var mage = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Elementarmagier);
+        var enemy = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 2), speed: 10);
+        state.AddUnit(mage);
+        state.AddUnit(enemy);
+        var feuer = mage.Definition.Ability.Modes!.Single(m => m.Id == "feuer");
+        AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, feuer);
+        Assert.Equal(2, mage.AbilityCooldownRemaining);
+
+        var agent = new ScriptedAgent();
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+
+        controller.ExecuteTurn(mage, agent, new Random(1), null, roundNumber: 2, startingTeam: Team.TeamA);
+        Assert.Equal(1, mage.AbilityCooldownRemaining);
+        Assert.Empty(AbilitySystem.GetLegalAbilityUses(mage, state)); // noch gesperrt
+
+        controller.ExecuteTurn(mage, agent, new Random(1), null, roundNumber: 3, startingTeam: Team.TeamA);
+        Assert.Null(mage.AbilityCooldownRemaining); // Abklingzeit vollständig abgelaufen
+        Assert.NotEmpty(AbilitySystem.GetLegalAbilityUses(mage, state)); // Fähigkeit wieder verfügbar
     }
 
     // -----------------------------------------------------------------

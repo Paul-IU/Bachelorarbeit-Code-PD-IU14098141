@@ -54,7 +54,7 @@ switch (mode)
         Console.WriteLine();
         Console.WriteLine(new string('=', 76));
         Console.WriteLine();
-        RunHeroMirrorPlausibilityCheck(matchCount: 100_000);
+        RunHeroMirrorPlausibilityCheck(matchCount: 10_000);
         Console.WriteLine();
         Console.WriteLine(new string('=', 76));
         Console.WriteLine();

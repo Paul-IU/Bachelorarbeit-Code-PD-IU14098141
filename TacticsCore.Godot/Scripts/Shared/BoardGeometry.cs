@@ -18,10 +18,16 @@ namespace TacticsCoreGodot.Shared;
 /// </summary>
 public static class BoardGeometry
 {
-    /// <summary>Radius eines Hexfelds (Mitte zu Ecke) in Pixeln - rein optisch, hat mit der Spiellogik nichts zu tun.</summary>
-    public const float HexSize = 90f;
+    // Bewusst KEIN fester "HexSize"-Vorgabewert (mehr): der Radius eines
+    // Hexfelds ist reine Bildschirm-Optik und hängt vom verfügbaren Platz
+    // ab, den erst HexBoardView zur Laufzeit kennt (siehe dortige
+    // RecomputeLayout-Methode, die die Größe bei jeder Fenster-/
+    // Panelgrößenänderung neu berechnet). Jeder Aufruf hier MUSS die Größe
+    // daher explizit angeben - kein Parameter mit stillschweigendem
+    // Rückfall auf einen konstanten Pixelwert, damit ein zukünftiger
+    // Aufrufer nicht versehentlich wieder eine feste Größe einschleppt.
 
-    public static Vector2 HexToPixel(HexCoordinate coordinate, float size = HexSize) => new(
+    public static Vector2 HexToPixel(HexCoordinate coordinate, float size) => new(
         size * 1.5f * coordinate.Q,
         size * Mathf.Sqrt(3f) * (coordinate.R + coordinate.Q / 2f));
 
@@ -37,7 +43,7 @@ public static class BoardGeometry
     /// Bildschirm-Eingabe-Geometrie, keine Spielregel, die dadurch
     /// dupliziert würde.
     /// </summary>
-    public static HexCoordinate PixelToHex(Vector2 localPixel, float size = HexSize)
+    public static HexCoordinate PixelToHex(Vector2 localPixel, float size)
     {
         double q = (2.0 / 3.0) * localPixel.X / size;
         double r = (-1.0 / 3.0) * localPixel.X / size + (Math.Sqrt(3.0) / 3.0) * localPixel.Y / size;
@@ -75,7 +81,7 @@ public static class BoardGeometry
     }
 
     /// <summary>Die sechs Eckpunkte eines flat-top-Hexfelds um seinen Mittelpunkt, für das Zeichnen als Polygon.</summary>
-    public static Vector2[] HexCorners(Vector2 center, float size = HexSize)
+    public static Vector2[] HexCorners(Vector2 center, float size)
     {
         var corners = new Vector2[6];
         for (int i = 0; i < 6; i++)

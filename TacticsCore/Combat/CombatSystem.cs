@@ -68,10 +68,23 @@ public static class CombatSystem
             return Array.Empty<Unit>();
         }
 
+        // Generische Angriffssperre (siehe EffectTemplate.PreventsAttacking,
+        // z.B. Hugger während der Anheftung: "kann selbst nicht angreifen").
+        if (EffectiveStats.IsAttackingPrevented(attacker, state))
+        {
+            return Array.Empty<Unit>();
+        }
+
         return GetAttackPatternFields(attacker, state)
             .SelectMany(state.GetUnitsAt)
             .Where(u => !u.IsDefeated)
             .Where(u => !CombatRules.RequireEnemyTarget || u.Team != attacker.Team)
+            // Generische Unangreifbarkeit gegenüber Gegnern (siehe
+            // EffectTemplate.PreventsBeingTargetedByEnemies, z.B. Hugger
+            // während der Anheftung: "kein gültiges Angriffsziel für
+            // Gegner") - team-relativ, betrifft daher nie ein Ziel aus dem
+            // eigenen Team.
+            .Where(u => !EffectiveStats.PreventsBeingTargetedBy(u, attacker.Team, state))
             .OrderBy(u => u.Position.Q)
             .ThenBy(u => u.Position.R)
             .ThenBy(u => u.Id)
