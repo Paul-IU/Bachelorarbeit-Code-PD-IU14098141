@@ -58,7 +58,7 @@ public class RoundOrderReportingTests
         // Unabhängig (VOR dem Lauf) berechnet - "unabhängig" nur insofern, als
         // es ein zweiter Aufruf ist, nicht weil es einen zweiten Algorithmus
         // gäbe (den soll die Oberfläche ja gerade NICHT selbst nachbauen).
-        var expected = TurnOrder.ComputeRoundOrder(state.Units, Team.TeamA).Select(u => u.Id).ToList();
+        var expected = TurnOrder.ComputeRoundOrder(state.Units, Team.TeamA, state).Select(u => u.Id).ToList();
 
         var controller = new MatchController(state, new ScriptedAgent(), new ScriptedAgent(), seed: 1, recordReplay: true);
         var result = controller.Run(startingTeamOverride: Team.TeamA);

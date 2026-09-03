@@ -12,9 +12,10 @@ namespace TacticsCore.Effects;
 /// Zuordnung der geforderten Wirkungsarten zu den Feldern hier (siehe
 /// Aufgabenstellung Punkt 8):
 ///   - Sofortschaden/-heilung          -&gt; IsInstant + InstantDamage/InstantHeal
-///   - distanzabhängige Wirkung        -&gt; ScaleWithDistance + DistanceFalloffPerStep (+ Minimum);
-///     gilt GENERISCH sowohl für Sofortschaden/-heilung als auch für
-///     dauerhafte StatModifiers-Deltas (siehe Musiker-Lied) - ausgewertet in
+///   - distanzabhängige Wirkung        -&gt; ScaleWithDistance + DistanceFalloffPerStep
+///     (+ optional PlateauRadius, + Minimum); gilt GENERISCH sowohl für
+///     Sofortschaden/-heilung als auch für dauerhafte StatModifiers-Deltas
+///     (siehe Musiker-Lied) - ausgewertet in
 ///     <see cref="Abilities.AbilitySystem.ApplyToUnit"/> bzw. dessen
 ///     <c>ScaleByDistance</c>/<c>ScaleNonZeroByDistance</c>-Hilfsmethoden.
 ///   - Schaden über mehrere Runden     -&gt; DamagePerTick + Duration
@@ -84,6 +85,27 @@ namespace TacticsCore.Effects;
 ///     <see cref="Effects.EffectiveStats.PreventsBeingTargetedBy"/>), nicht
 ///     als absolute Sperre - sonst könnten auch Verbündete die Einheit
 ///     nicht mehr als Ziel wählen.
+///   - PlateauRadius (Bachelorarbeit-Korrektur, Musiker-Lied): Anzahl
+///     Distanzstufen AB DER ERST DER lineare Abfall einsetzt - Distanz 0 bis
+///     einschließlich <c>PlateauRadius</c> bleibt UNVERÄNDERT auf der vollen
+///     Stärke, erst darüber hinaus greift <see cref="DistanceFalloffPerStep"/>
+///     (angewendet auf <c>Distanz - PlateauRadius</c> statt auf die rohe
+///     Distanz, siehe <see cref="Abilities.AbilitySystem.ApplyToUnit"/>
+///     bzw. dessen private <c>ScaleByDistance</c>-Methode). Standardwert 0
+///     entspricht exakt dem bisherigen Verhalten (Abfall setzt sofort ab
+///     Distanz 1 ein, wie bei der Elfe-Heilung) - kein bestehendes Template
+///     ändert sein Verhalten durch die Einführung dieses Feldes.
+///     GRUND FÜR DIE ERWEITERUNG: Ursprünglich sollte das Musiker-Lied auf
+///     Distanz 0 UND 1 GLEICH STARK wirken und erst auf Distanz 2 abfallen -
+///     ein "Plateau" über zwei Distanzstufen. Eine rein lineare Formel (jeder
+///     Schritt senkt um denselben Betrag) kann das strukturell NICHT
+///     abbilden, unabhängig von der gewählten Schrittgröße - das war zunächst
+///     als bewusste, dokumentierte Näherung hingenommen worden. Mit diesem
+///     zusätzlichen, aber optionalen Parameter lässt sich das Plateau jetzt
+///     EXAKT abbilden (<c>PlateauRadius: 1</c> bei Musiker), ohne einen
+///     komplett neuen, zweiten Distanzmechanismus einführen zu müssen und
+///     ohne die bestehende, bei der Elfe bewährte Formel für alle anderen
+///     Fähigkeiten zu verändern.
 /// </summary>
 public sealed record EffectTemplate(
     string Name,
@@ -95,6 +117,7 @@ public sealed record EffectTemplate(
     bool ScaleWithDistance = false,
     int? DistanceFalloffPerStep = null,
     int? MinimumAfterDistanceScaling = null,
+    int PlateauRadius = 0,
     int? DamagePerTick = null,
     StatModifierSet? StatModifiers = null,
     StatModifierSet? StatModifiersForEnemy = null,

@@ -269,20 +269,24 @@ public static class AbilitySystem
     /// Wendet ein einzelnes Template an. <see cref="EffectTemplate.AppliesToCaster"/>
     /// leitet die Wirkung generisch auf den ANWENDER selbst um, unabhängig
     /// vom eigentlich gewählten Ziel - für Fähigkeiten, die NEBEN dem
-    /// gewählten Ziel zusätzlich sich selbst betreffen (siehe Hugger).
+    /// gewählten Ziel zusätzlich sich selbst betreffen (siehe Hugger). Bei
+    /// einem Einheiten-Ziel ist der Anwender selbst der Bezugspunkt für einen
+    /// evtl. konfigurierten Distanzabfall (siehe ApplyToUnit); bei einem
+    /// Feld-Ziel übernimmt ApplyToFieldTarget stattdessen das GEWÄHLTE
+    /// ZENTRUMSFELD als Bezugspunkt (siehe dortige Begründung).
     /// </summary>
     private static void ApplyTemplate(GameState state, Hero source, AbilityTarget target, AbilityDefinition ability, EffectTemplate template, List<ReplayEntry>? replayEntries, int roundNumber)
     {
         if (template.AppliesToCaster)
         {
-            ApplyToUnit(state, source, source, template, replayEntries, roundNumber);
+            ApplyToUnit(state, source, source, source.Position, template, replayEntries, roundNumber);
             return;
         }
 
         switch (target)
         {
             case AbilityTarget.UnitTarget u:
-                ApplyToUnit(state, source, u.Unit, template, replayEntries, roundNumber);
+                ApplyToUnit(state, source, u.Unit, source.Position, template, replayEntries, roundNumber);
                 break;
 
             case AbilityTarget.FieldTarget f:
@@ -291,6 +295,24 @@ public static class AbilitySystem
         }
     }
 
+    /// <summary>
+    /// Wendet ein Feld-Ziel-Template an. Bachelorarbeit-Korrektur: ein evtl.
+    /// konfigurierter Distanzabfall (<see cref="EffectTemplate.ScaleWithDistance"/>)
+    /// misst die Distanz hier bewusst vom GEWÄHLTEN ZENTRUMSFELD
+    /// <paramref name="field"/> aus, NICHT von der Position des Anwenders
+    /// (<paramref name="source"/>.Position) - siehe die entsprechenden
+    /// <c>distanceOrigin</c>-Aufrufe unten. Vor dieser Korrektur berechnete
+    /// <see cref="ApplyToUnit"/> die Distanz IMMER ab dem Anwender; bei den
+    /// aktuell neun Helden blieb das folgenlos, weil jede
+    /// <see cref="AbilityTargetType.AllUnitsInRadius"/>-Fähigkeit Reichweite
+    /// 0 hat (das Zentrum ist dadurch zwangsläufig immer das eigene Feld des
+    /// Anwenders, beides fällt zusammen) - bei einer künftigen
+    /// Flächenfähigkeit mit Reichweite &gt; 0 UND Distanzabfall hätte sich das
+    /// aber sichtbar und falsch ausgewirkt (ein Verbündeter GENAU auf dem
+    /// gewählten Zentrumsfeld wäre fälschlich mit der Distanz Anwender→Feld
+    /// statt mit Distanz 0 skaliert worden). Siehe AbilitySystemTests für
+    /// den Regressionstest mit Reichweite &gt; 0.
+    /// </summary>
     private static void ApplyToFieldTarget(GameState state, Hero source, HexCoordinate field, AbilityDefinition ability, EffectTemplate template, List<ReplayEntry>? replayEntries, int roundNumber)
     {
         // Bei AllUnitsInRadius werden zusätzlich alle Felder im
@@ -345,12 +367,22 @@ public static class AbilitySystem
 
             foreach (var unit in affectedUnits)
             {
-                ApplyToUnit(state, source, unit, template, replayEntries, roundNumber);
+                // distanceOrigin = field (das gewählte Zentrum), NICHT
+                // source.Position - siehe Klassendoku dieser Methode oben.
+                ApplyToUnit(state, source, unit, field, template, replayEntries, roundNumber);
             }
         }
     }
 
-    private static void ApplyToUnit(GameState state, Hero source, Unit target, EffectTemplate template, List<ReplayEntry>? replayEntries, int roundNumber)
+    /// <summary>
+    /// Wendet <paramref name="template"/> auf <paramref name="target"/> an.
+    /// <paramref name="distanceOrigin"/> ist der Bezugspunkt für einen evtl.
+    /// konfigurierten Distanzabfall - bei einem direkten Einheiten-Ziel die
+    /// Position des Anwenders, bei einer Flächenwirkung das gewählte
+    /// Zentrumsfeld (siehe die beiden Aufrufer, ApplyTemplate bzw.
+    /// ApplyToFieldTarget, für die genaue Begründung).
+    /// </summary>
+    private static void ApplyToUnit(GameState state, Hero source, Unit target, HexCoordinate distanceOrigin, EffectTemplate template, List<ReplayEntry>? replayEntries, int roundNumber)
     {
         // Aktives Beenden eines eigenen, noch laufenden Effekts (siehe
         // Bogenschütze: "Aufladung abbrechen") - generisch über den Namen,
@@ -368,7 +400,7 @@ public static class AbilitySystem
             return;
         }
 
-        int distance = HexCoordinate.Distance(source.Position, target.Position);
+        int distance = HexCoordinate.Distance(distanceOrigin, target.Position);
 
         if (template.IsInstant)
         {
@@ -437,9 +469,14 @@ public static class AbilitySystem
         value == 0 ? 0 : ScaleByDistance(value, distance, template);
 
     /// <summary>
-    /// Lineare Entfernungsskalierung (Anforderung 8): pro Distanzschritt
-    /// über 0 hinaus sinkt die Wirkung um <see cref="EffectTemplate.DistanceFalloffPerStep"/>,
-    /// nach unten begrenzt durch <see cref="EffectTemplate.MinimumAfterDistanceScaling"/>.
+    /// Lineare Entfernungsskalierung MIT optionalem Plateau (Anforderung 8):
+    /// bis einschließlich <see cref="EffectTemplate.PlateauRadius"/>
+    /// Distanzschritte bleibt die Wirkung UNVERÄNDERT auf voller Stärke, erst
+    /// darüber hinaus sinkt sie je weiterem Schritt um
+    /// <see cref="EffectTemplate.DistanceFalloffPerStep"/>, nach unten
+    /// begrenzt durch <see cref="EffectTemplate.MinimumAfterDistanceScaling"/>.
+    /// Bei <c>PlateauRadius: 0</c> (Standardwert) entspricht das exakt der
+    /// bisherigen Formel ohne Plateau (Abfall setzt sofort ab Distanz 1 ein).
     /// Bewusst eine einfache, vollständig deterministische Formel ohne
     /// Zufall - "Distanz 1 stärker als Distanz 2" folgt direkt daraus.
     /// </summary>
@@ -450,7 +487,8 @@ public static class AbilitySystem
             return baseAmount;
         }
 
-        int scaled = baseAmount - (template.DistanceFalloffPerStep ?? 0) * distance;
+        int distanceBeyondPlateau = Math.Max(0, distance - template.PlateauRadius);
+        int scaled = baseAmount - (template.DistanceFalloffPerStep ?? 0) * distanceBeyondPlateau;
         return template.MinimumAfterDistanceScaling is int minimum ? Math.Max(minimum, scaled) : scaled;
     }
 }

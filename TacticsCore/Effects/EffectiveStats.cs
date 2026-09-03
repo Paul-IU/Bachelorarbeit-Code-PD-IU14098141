@@ -9,21 +9,14 @@ namespace TacticsCore.Effects;
 /// Fähigkeiten - deren live berechneter Beitrag (siehe
 /// <see cref="IHasPassiveStatContribution"/>).
 ///
-/// Das ist die EINZIGE Stelle, an der Bewegungs- und Kampfsysteme nach den
-/// tatsächlich geltenden Werten einer Einheit fragen sollen - sobald
-/// Effekte im Spiel sind, darf nirgendwo sonst direkt auf
-/// <c>unit.MovementRange</c>, <c>unit.BaseAttackDamage</c> o.ä.
-/// zugegriffen werden.
-///
-/// EINSCHRÄNKUNG (bewusst dokumentiert statt stillschweigend): Die
-/// Zugreihenfolge (<see cref="TacticsCore.Match.TurnOrder"/>) liest aktuell
-/// noch direkt <c>unit.Speed</c> statt <see cref="Speed"/> hier - ein
-/// Speed-Buff/-Debuff würde sich also (noch) nicht auf die Rangfolge
-/// auswirken. Keiner der drei Beispielhelden nutzt einen Speed-Modifikator
-/// und keine Anforderung verlangt das aktuell testbar; die Erweiterung
-/// (TurnOrder müsste dafür zusätzlich den GameState kennen) ist bewusst für
-/// einen späteren Schritt zurückgestellt, um hier keinen breiten,
-/// ungetesteten Umbau vorzunehmen.
+/// Das ist die EINZIGE Stelle, an der Bewegungs-, Kampf- UND
+/// Zugreihenfolge-Systeme nach den tatsächlich geltenden Werten einer
+/// Einheit fragen sollen - sobald Effekte im Spiel sind, darf nirgendwo
+/// sonst direkt auf <c>unit.MovementRange</c>, <c>unit.BaseAttackDamage</c>,
+/// <c>unit.Speed</c> o.ä. zugegriffen werden (siehe auch
+/// <see cref="TacticsCore.Match.TurnOrder"/>, das seit der Bachelorarbeit-
+/// Korrektur ebenfalls <see cref="Speed"/> statt des rohen Feldes für die
+/// Zugreihenfolge nutzt).
 /// </summary>
 public static class EffectiveStats
 {
@@ -36,7 +29,7 @@ public static class EffectiveStats
     public static int AttackRange(Unit unit, GameState state) =>
         Math.Max(0, unit.AttackRange + SumModifiers(unit, state).AttackRangeDelta);
 
-    /// <summary>Siehe Klassendokumentation - aktuell von TurnOrder noch nicht konsultiert.</summary>
+    /// <summary>Siehe Klassendokumentation - wird seit der Bachelorarbeit-Korrektur auch von <see cref="TacticsCore.Match.TurnOrder"/> für die Zugreihenfolge konsultiert.</summary>
     public static int Speed(Unit unit, GameState state) =>
         Math.Max(0, unit.Speed + SumModifiers(unit, state).SpeedDelta);
 

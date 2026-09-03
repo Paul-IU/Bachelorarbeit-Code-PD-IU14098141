@@ -161,7 +161,8 @@ public static class DefaultHeroes
             PassiveStatModifier: (unit, _) =>
             {
                 double missingFraction = 1.0 - (double)unit.CurrentHitPoints / unit.MaxHitPoints;
-                int bonus = (int)Math.Round(missingFraction * 20);
+                //int bonus = (int)Math.Round(missingFraction * 20);
+                int bonus = (int)Math.Floor(missingFraction * 3) * 5;
                 return new StatModifierSet(BaseAttackDamageDelta: bonus);
             }));
 
@@ -271,24 +272,26 @@ public static class DefaultHeroes
     /// einen Schadensbonus, Modus B einen Bewegungsreichweiten-Bonus, beide
     /// für dieselbe Dauer.
     ///
-    /// DISTANZABHÄNGIGE WIRKUNG (<see cref="EffectTemplate.ScaleWithDistance"/>,
-    /// dieselbe generische Mechanik wie bei der Elfe-Heilung - siehe
-    /// <see cref="Abilities.AbilitySystem.ApplyToUnit"/>, dort inzwischen
+    /// DISTANZABHÄNGIGE WIRKUNG MIT PLATEAU (<see cref="EffectTemplate.ScaleWithDistance"/>
+    /// + <see cref="EffectTemplate.PlateauRadius"/>, dieselbe generische
+    /// Mechanik wie bei der Elfe-Heilung, um den Plateau-Radius erweitert -
+    /// siehe <see cref="Abilities.AbilitySystem.ApplyToUnit"/>, dort
     /// GENERISCH auch für dauerhafte Stat-Modifikatoren statt nur für
     /// Sofortschaden/-heilung ausgewertet):
-    ///   - Kampflied: +3 Angriffsschaden auf Distanz 0, +2 auf Distanz 1,
-    ///     +1 auf Distanz 2 (linearer Abfall um 1 je Schritt).
-    ///   - Marschlied: +1 Bewegungsreichweite auf Distanz 0, wird auf
-    ///     Distanz 1 und 2 mit dem linearen Abfall (ebenfalls 1 je Schritt)
-    ///     bereits auf 0 gedeckelt (<see cref="EffectTemplate.MinimumAfterDistanceScaling"/>
-    ///     = 0) - eine exakte "gleich stark auf Distanz 0 UND 1, danach
-    ///     abrupt 0"-Stufe (wie ursprünglich für Distanz 1 gewünscht) ist mit
-    ///     der linearen Abfallformel NICHT exakt abbildbar (linear heißt:
-    ///     jeder Schritt senkt um denselben Betrag, ein Plateau über zwei
-    ///     Distanzstufen hinweg wäre ein ZWEITER, eigener Mechanismus).
-    ///     Diese Näherung nutzt bewusst die vorhandene, bereits bei der Elfe
-    ///     bewährte Mechanik weiter, statt dafür eine neue Sonderlösung zu
-    ///     bauen.
+    ///   - Kampflied: +3 Angriffsschaden auf Distanz 0 UND 1 (Plateau-Radius
+    ///     1 - beide Distanzen gleich stark), +1 auf Distanz 2
+    ///     (PlateauRadius: 1, DistanceFalloffPerStep: 2 - der Abfall setzt
+    ///     erst NACH dem Plateau ein und beträgt dann 2 je Schritt: 3 - 2*(2-1) = 1).
+    ///   - Marschlied: +1 Bewegungsreichweite auf Distanz 0 UND 1 (dasselbe
+    ///     Plateau), keine Wirkung mehr auf Distanz 2 (PlateauRadius: 1,
+    ///     DistanceFalloffPerStep: 1, zusätzlich MinimumAfterDistanceScaling:
+    ///     0 als Sicherheitsnetz gegen einen negativen Bewegungsabzug).
+    ///     Dieses "gleich stark auf Distanz 0 UND 1, danach abrupt 0"-Plateau
+    ///     war die ursprüngliche Designabsicht und ist mit PlateauRadius jetzt
+    ///     EXAKT abgebildet - keine Näherung mehr (siehe EffectTemplate für
+    ///     die Begründung, warum die rein lineare Formel das vorher nicht
+    ///     konnte und wieso ein zusätzlicher, aber optionaler Parameter statt
+    ///     eines komplett neuen Mechanismus gewählt wurde).
     ///
     /// ABKLINGZEIT (Bachelorarbeit-Balancing): 2 Runden - VORLÄUFIGER
     /// Startwert, noch nicht über Simulationen ausbalanciert. Gilt für BEIDE
@@ -329,7 +332,8 @@ public static class DefaultHeroes
                             Stacking: StackingRule.RefreshDuration,
                             StatModifiers: new StatModifierSet(BaseAttackDamageDelta: 3),
                             ScaleWithDistance: true,
-                            DistanceFalloffPerStep: 1),
+                            PlateauRadius: 1, // Distanz 0 UND 1 gleich stark (+3)
+                            DistanceFalloffPerStep: 2), // ab Distanz 2 (= 1 Schritt hinter dem Plateau): 3 - 2*1 = 1
                     }),
                 new AbilityMode(
                     Id: "marschlied",
@@ -343,8 +347,9 @@ public static class DefaultHeroes
                             Stacking: StackingRule.RefreshDuration,
                             StatModifiers: new StatModifierSet(MovementRangeDelta: 1),
                             ScaleWithDistance: true,
+                            PlateauRadius: 1, // Distanz 0 UND 1 gleich stark (+1)
                             DistanceFalloffPerStep: 1,
-                            MinimumAfterDistanceScaling: 0),
+                            MinimumAfterDistanceScaling: 0), // Distanz 2: 1 - 1*1 = 0 - kein negativer Bewegungsabzug möglich
                     }),
             }));
 

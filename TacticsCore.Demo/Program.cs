@@ -11,6 +11,7 @@
 // eigene Spiellogik, sondern nutzt ausschließlich die öffentliche API von
 // TacticsCore.
 
+using System.Globalization;
 using TacticsCore;
 using TacticsCore.Abilities;
 using TacticsCore.Agents;
@@ -32,7 +33,17 @@ using TacticsCore.Units;
 // EINE konkrete, per Kommandozeile bestimmte Partie vollständig (inklusive
 // Helden-Zuordnung) für die spätere Betrachtung in der Godot-Oberfläche
 // (siehe TacticsCore.Godot) - genau der Anwendungsfall "eine im Batch-Lauf
-// auffällig gewordene Partie gezielt visuell nachvollziehen".
+// auffällig gewordene Partie gezielt visuell nachvollziehen". "buff-compare"
+// lässt zwei ansonsten IDENTISCHE Dreier-Teams frei wählbar oft gegeneinander
+// antreten, wobei genau EIN Held auf Team A um einen frei wählbaren
+// Prozentsatz bei einem frei wählbaren Attribut verändert ist (Team B bleibt
+// beim Standardwert) - eine per Kommandozeile parametrisierte, asymmetrische
+// Variante von Teil 2/3 dieses Demos, siehe RunBuffCompare. "full-baseline"
+// spielt den vollständigen Basislauf über ALLE möglichen Paarungen bei allen
+// neun Helden - jede der 84 Kompositionen gegen jede andere UND gegen sich
+// selbst, über jeweils ALLE 72 Ausgangslagen (Anforderung 5/11) -, statt wie
+// "batch" nur eine kleine, zeitgemessene Stichprobe zu spielen, siehe
+// RunFullBaseline.
 string mode = args.Length > 0 ? args[0].ToLowerInvariant() : "demo";
 
 switch (mode)
@@ -47,6 +58,14 @@ switch (mode)
 
     case "export-replay":
         RunExportReplay(args.Skip(1).ToArray());
+        break;
+
+    case "buff-compare":
+        RunBuffCompare(args.Skip(1).ToArray());
+        break;
+
+    case "full-baseline":
+        RunFullBaseline(args.Skip(1).ToArray());
         break;
 
     default:
@@ -337,6 +356,164 @@ static void RunCatalogOverrideComparison(int matchesPerCatalog)
 }
 
 // =======================================================================
+// Modus "buff-compare": zwei ansonsten IDENTISCHE Dreier-Teams gegeneinander
+// (dieselben drei Helden auf beiden Seiten, wie beim Spiegel-Match in Teil 2),
+// bei denen genau EIN Held auf TEAM A um einen frei wählbaren Prozentsatz bei
+// einem frei wählbaren Attribut verändert ist - Team B behält exakt den
+// Standardwert. Anzahl der Partien und alle übrigen Parameter kommen von der
+// Kommandozeile statt fest im Code zu stehen. Ausgewertet wird genau wie
+// beim Spiegel-Match: Siegquote je Team, Unentschieden, Ø-Rundenzahl,
+// Rundenlimit-Anteil.
+//
+// Wiederverwendet HeroCatalogVariants.WithAttributePercentageChange (siehe
+// Teil 3) statt die Prozent-Rechnung hier ein zweites Mal nachzubauen - dafür
+// wird kurz ein Mini-Katalog aus genau den drei gewählten Helden gebaut, die
+// veränderte Definition daraus wieder herausgelesen und NUR in die Team-A-
+// Aufstellung eingesetzt. Team B nutzt weiterhin die drei unveränderten
+// HeroDefinition-Objekte aus dem echten Standardkatalog.
+//
+// Beispiel-Aufruf (Berserker in beiden Teams, Team A's Berserker +10%
+// Grundschaden, 5000 Partien):
+//   dotnet run --project TacticsCore.Demo -- buff-compare schildtraeger elfe berserker berserker BaseAttackDamage 10 5000
+// =======================================================================
+static void RunBuffCompare(string[] cliArgs)
+{
+    var catalog = DefaultHeroes.CreateDefaultCatalog();
+
+    if (cliArgs.Length != 7 ||
+        !Enum.TryParse<HeroAttribute>(cliArgs[4], ignoreCase: true, out var attribute) ||
+        !double.TryParse(cliArgs[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double percentageChange) ||
+        !int.TryParse(cliArgs[6], out int matchCount) || matchCount <= 0)
+    {
+        Console.WriteLine("Verwendung: buff-compare <held1> <held2> <held3> <zuBuffenderHeld> <Attribut> <Prozent> <AnzahlPartien>");
+        Console.WriteLine();
+        Console.WriteLine("  held1..3           Die drei Helden, aus denen BEIDE Teams identisch bestehen.");
+        Console.WriteLine("  zuBuffenderHeld    Muss einer von held1..3 sein - NUR dieser Held wird auf Team A verändert.");
+        Console.WriteLine("  Attribut           " + string.Join(", ", Enum.GetNames<HeroAttribute>()));
+        Console.WriteLine("  Prozent            z.B. 10 für +10%, -15 für -15% (Dezimalpunkt, kein Komma).");
+        Console.WriteLine("  AnzahlPartien      Wie oft simuliert wird (Seeds 0..AnzahlPartien-1).");
+        Console.WriteLine();
+        Console.WriteLine("Helden-Ids: " + string.Join(", ", catalog.All.Select(h => h.Id)));
+        Console.WriteLine("Beispiel:   buff-compare schildtraeger elfe berserker berserker BaseAttackDamage 10 5000");
+        return;
+    }
+
+    var heroIds = cliArgs.Take(3).ToArray();
+    string buffedHeroId = cliArgs[3];
+
+    if (heroIds.Distinct().Count() != 3)
+    {
+        Console.WriteLine("Die drei Helden des Teams müssen paarweise verschieden sein.");
+        return;
+    }
+
+    if (!heroIds.Contains(buffedHeroId))
+    {
+        Console.WriteLine($"'{buffedHeroId}' ist keiner der drei gewählten Helden ({string.Join(", ", heroIds)}).");
+        return;
+    }
+
+    List<HeroDefinition> baseHeroes;
+    HeroDefinition buffedHero;
+    try
+    {
+        baseHeroes = heroIds.Select(catalog.Get).ToList();
+
+        // Mini-Katalog aus GENAU diesen drei Helden, nur um die bereits
+        // vorhandene, getestete Prozent-Logik wiederzuverwenden (siehe
+        // Klassendoku oben) - wirft z.B., falls <Attribut> "Speed" ist und
+        // der veränderte Wert mit einem der beiden anderen Team-Helden
+        // kollidiert (HeroCatalog erzwingt paarweise verschiedene Speed-Werte
+        // bei JEDER Katalogerzeugung, siehe HeroCatalog.ValidateDistinctSpeedValues).
+        var miniCatalog = new HeroCatalog(baseHeroes);
+        var buffedMiniCatalog = HeroCatalogVariants.WithAttributePercentageChange(miniCatalog, buffedHeroId, attribute, percentageChange);
+        buffedHero = buffedMiniCatalog.Get(buffedHeroId);
+    }
+    catch (Exception ex) when (ex is KeyNotFoundException or ArgumentException)
+    {
+        Console.WriteLine($"Fehler: {ex.Message}");
+        return;
+    }
+
+    var teamAHeroes = baseHeroes.Select(h => h.Id == buffedHeroId ? buffedHero : h).ToList();
+    var teamBHeroes = baseHeroes; // unverändert - Team B bleibt beim Standardwert
+
+    Console.WriteLine($"=== TacticsCore - Asymmetrischer Vergleich ({matchCount} Partien) ===");
+    Console.WriteLine();
+    Console.WriteLine($"Team A UND Team B: {string.Join(", ", heroIds.Select(id => catalog.Get(id).DisplayName))}.");
+    Console.WriteLine($"Einziger Unterschied: {catalog.Get(buffedHeroId).DisplayName} auf Team A hat {attribute} = {GetAttributeValue(buffedHero, attribute)} " +
+        $"({(percentageChange >= 0 ? "+" : "")}{percentageChange:0.##}%), statt {GetAttributeValue(catalog.Get(buffedHeroId), attribute)} wie auf Team B.");
+    Console.WriteLine();
+
+    int teamAWins = 0, teamBWins = 0, draws = 0, roundLimitEndings = 0;
+    long totalRoundsPlayed = 0;
+
+    for (int seed = 0; seed < matchCount; seed++)
+    {
+        var state = BuildBuffCompareLineup(teamAHeroes, teamBHeroes);
+        var result = new MatchController(state, new RandomAgent(), new RandomAgent(), seed).Run();
+
+        switch (result.Winner)
+        {
+            case MatchWinner.TeamA: teamAWins++; break;
+            case MatchWinner.TeamB: teamBWins++; break;
+            default: draws++; break;
+        }
+
+        if (result.EndReason == MatchEndReason.RoundLimit)
+        {
+            roundLimitEndings++;
+        }
+
+        totalRoundsPlayed += result.RoundsPlayed;
+    }
+
+    Console.WriteLine($"Team A Siege:          {teamAWins,6}  ({(double)teamAWins / matchCount:P1})");
+    Console.WriteLine($"Team B Siege:          {teamBWins,6}  ({(double)teamBWins / matchCount:P1})");
+    Console.WriteLine($"Unentschieden:         {draws,6}  ({(double)draws / matchCount:P1})");
+    Console.WriteLine();
+    Console.WriteLine($"Durchschnittliche Rundenzahl:      {(double)totalRoundsPlayed / matchCount:F1}");
+    Console.WriteLine($"Anteil Rundenlimit-Enden:          {(double)roundLimitEndings / matchCount:P1}");
+    Console.WriteLine();
+    Console.WriteLine("Hinweis: Eine klare Verschiebung zugunsten Team A bestätigt einen spürbaren");
+    Console.WriteLine("Effekt dieser Attributänderung; bleibt die Siegquote nahe 50/50, wirkt sich");
+    Console.WriteLine("das gewählte Attribut bei diesem Helden kaum auf den Partieausgang aus.");
+}
+
+/// <summary>Baut eine Partie mit ZWEI UNABHÄNGIG übergebenen Helden-Listen auf - anders als BuildMirrorHeroLineup dürfen sich Team A und Team B hier unterscheiden (siehe RunBuffCompare).</summary>
+static GameState BuildBuffCompareLineup(IReadOnlyList<HeroDefinition> teamAHeroes, IReadOnlyList<HeroDefinition> teamBHeroes)
+{
+    var board = new Board();
+    var state = new GameState(board);
+
+    var teamAFields = board.GetStartFields(FieldType.BlossomA).ToList();
+    var teamBFields = board.GetStartFields(FieldType.BlossomB).ToList();
+
+    for (int i = 0; i < teamAHeroes.Count && i < teamAFields.Count; i++)
+    {
+        state.AddUnit(new Hero(Guid.NewGuid(), Team.TeamA, teamAFields[i].Coordinate, teamAHeroes[i]));
+    }
+
+    for (int i = 0; i < teamBHeroes.Count && i < teamBFields.Count; i++)
+    {
+        state.AddUnit(new Hero(Guid.NewGuid(), Team.TeamB, teamBFields[i].Coordinate, teamBHeroes[i]));
+    }
+
+    return state;
+}
+
+/// <summary>Liest den aktuellen Wert eines einzelnen, per <see cref="HeroAttribute"/> ausgewählten Attributs aus einer Helden-Definition - für die Vergleichsausgabe in RunBuffCompare.</summary>
+static int GetAttributeValue(HeroDefinition hero, HeroAttribute attribute) => attribute switch
+{
+    HeroAttribute.MaxHitPoints => hero.MaxHitPoints,
+    HeroAttribute.BaseAttackDamage => hero.BaseAttackDamage,
+    HeroAttribute.Speed => hero.Speed,
+    HeroAttribute.MovementRange => hero.MovementRange,
+    HeroAttribute.AttackRange => hero.AttackRange,
+    _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Unbekanntes Heldenattribut."),
+};
+
+// =======================================================================
 // Interaktiver Modus (Anforderung 15): eine vollständige Partie selbst
 // spielen, wahlweise Mensch gegen Zufallsagent oder Mensch gegen Mensch
 // (lokal am selben Bildschirm, abwechselnd). Nach jedem abgeschlossenen Zug
@@ -455,6 +632,114 @@ static void RunSmallBatchDemo()
     {
         Console.WriteLine($"{pr.TeamA,-45} vs {pr.TeamB,-45}: A {pr.TeamAWinRate,6:P1} / B {pr.TeamBWinRate,6:P1} / Remis {pr.DrawRate,5:P1}   Runden im Schnitt {pr.AverageRoundsPlayed:F1}");
     }
+}
+
+// =======================================================================
+// Modus "full-baseline" (Anforderung 5/11): VOLLSTÄNDIGER Basislauf mit
+// Zufallsagenten auf beiden Seiten über ALLE möglichen Paarungen bei allen
+// neun Helden, jeweils über ALLE 72 Ausgangslagen je Paarung - anders als
+// "batch" (kleine Stichprobe + reine Hochrechnung) wird hier tatsächlich
+// ausgeführt.
+//
+// PAARUNGSANZAHL: C(9,3) = 84 Kompositionen. Es werden bewusst nur die
+// EINDEUTIGEN, UNGEORDNETEN Paarungen gespielt - jede Komposition gegen
+// jede ANDERE genau einmal, PLUS jede Komposition gegen sich selbst
+// (Spiegelpaarung) - macht C(84,2) + 84 = 3.486 + 84 = 3.570 Paarungen.
+// "X gegen Y" zusätzlich noch einmal als "Y gegen X" zu spielen wäre reine
+// Doppelarbeit: welches Team beginnt, ist bereits Teil JEDER einzelnen
+// Ausgangslage (siehe AusgangslagenGenerator.GenerateAllSetups - 6
+// Aufstellungspermutationen je Team x 2 mögliche Startteams = 72), eine
+// Paarung deckt also so oder so schon BEIDE Startteam-Varianten ab.
+//
+// UMFANG: 3.570 Paarungen x 72 Ausgangslagen = 257.040 Partien - mit
+// Abstand der größte Lauf dieses Konsolenprogramms, je nach Rechner mehrere
+// Minuten (siehe die Hochrechnung im "batch"-Modus für eine grobe Schätzung
+// auf der eigenen Maschine, dort allerdings noch mit der doppelt so hohen,
+// GEORDNETEN 84x84-Zählung gerechnet).
+//
+// Beispiel-Aufruf:
+//   dotnet run --project TacticsCore.Demo -- full-baseline paarungen.csv kompositionen.csv 2026
+// =======================================================================
+static void RunFullBaseline(string[] cliArgs)
+{
+    if (cliArgs.Length is < 2 or > 3 || (cliArgs.Length == 3 && !int.TryParse(cliArgs[2], out _)))
+    {
+        Console.WriteLine("Verwendung: full-baseline <paarungenCsv> <kompositionenCsv> [baseSeed]");
+        Console.WriteLine();
+        Console.WriteLine("  paarungenCsv       Zieldatei, eine Zeile je Paarung (siehe CsvExporter.ExportPairingResults).");
+        Console.WriteLine("  kompositionenCsv   Zieldatei, eine Zeile je Komposition mit ihrer über alle Paarungen aggregierten Siegquote.");
+        Console.WriteLine("  baseSeed           Optional, Standard 2026 - leitet daraus deterministisch den Seed JEDER Einzelpartie ab.");
+        Console.WriteLine();
+        Console.WriteLine("Spielt ALLE 3.570 eindeutigen Paarungen (84 Kompositionen, inkl. 84 Spiegelpaarungen)");
+        Console.WriteLine("über JEWEILS ALLE 72 Ausgangslagen (beide Startteam-Varianten je Paarung eingeschlossen) -");
+        Console.WriteLine("insgesamt 257.040 Partien mit Zufallsagenten auf beiden Seiten. Dauert je nach Rechner");
+        Console.WriteLine("mehrere Minuten (siehe Hochrechnung im 'batch'-Modus).");
+        return;
+    }
+
+    string pairingsCsvPath = cliArgs[0];
+    string compositionsCsvPath = cliArgs[1];
+    int baseSeed = cliArgs.Length == 3 ? int.Parse(cliArgs[2]) : 2026;
+
+    var board = new Board();
+    var catalog = DefaultHeroes.CreateDefaultCatalog();
+    var allCompositions = CompositionGenerator.GenerateAllCompositions(catalog);
+    var pairings = GenerateAllUniquePairingsIncludingMirrors(allCompositions);
+    int totalMatches = pairings.Count * 72;
+
+    Console.WriteLine("=== TacticsCore - Vollständiger Basislauf (Zufallsagent gegen Zufallsagent) ===");
+    Console.WriteLine();
+    Console.WriteLine($"{allCompositions.Count} Kompositionen -> {pairings.Count} eindeutige Paarungen (davon {allCompositions.Count} Spiegelpaarungen) x 72 Ausgangslagen = {totalMatches} Partien.");
+    Console.WriteLine($"Basis-Seed: {baseSeed}   Threads: {Environment.ProcessorCount}");
+    Console.WriteLine();
+
+    // Fortschritt nicht bei JEDER einzelnen Partie ausgeben (bei 257.040
+    // Partien wäre das reine Konsolen-Schreiblast ohne Zusatznutzen) -
+    // stattdessen alle 1000 Partien plus garantiert beim letzten Fortschritt.
+    const int reportEvery = 1000;
+    var result = BatchSimulationRunner.Run(
+        board, pairings, AgentConfiguration.RandomVsRandom(),
+        baseSeed: baseSeed, maxSetupsPerPairing: null, degreeOfParallelism: Environment.ProcessorCount,
+        onProgress: p =>
+        {
+            if (p.CompletedMatches % reportEvery == 0 || p.CompletedMatches == p.TotalMatches)
+            {
+                Console.Write($"\rFortschritt: {p.CompletedMatches}/{p.TotalMatches} Partien, Paarung {p.CompletedPairings + 1}/{p.TotalPairings} ({p.Elapsed.TotalSeconds:F0}s)   ");
+            }
+        });
+
+    Console.WriteLine();
+    Console.WriteLine();
+    Console.WriteLine($"Gesamtlaufzeit: {result.ElapsedTime.TotalSeconds:F1} s für {totalMatches} Partien ({result.ElapsedTime.TotalMilliseconds / totalMatches:F2} ms/Partie im Schnitt).");
+    Console.WriteLine();
+
+    CsvExporter.ExportPairingResults(result.PairingResults, pairingsCsvPath);
+    CsvExporter.ExportCompositionWinRates(result.PairingResults, compositionsCsvPath);
+
+    Console.WriteLine($"Paarungs-Ergebnisse gespeichert:      {pairingsCsvPath} ({result.PairingResults.Count} Zeilen + Kopfzeile)");
+    Console.WriteLine($"Kompositions-Siegquoten gespeichert:  {compositionsCsvPath} ({allCompositions.Count} Zeilen + Kopfzeile)");
+}
+
+/// <summary>
+/// Liefert jede Komposition gegen jede ANDERE genau einmal, PLUS jede
+/// Komposition gegen sich selbst (Spiegelpaarung) - siehe Klassendoku von
+/// RunFullBaseline für die Begründung, warum "Y gegen X" absichtlich NICHT
+/// zusätzlich zu "X gegen Y" erzeugt wird. Rein indexbasiert und damit
+/// deterministisch bei gleicher (stabil sortierter, siehe
+/// CompositionGenerator) Eingabe.
+/// </summary>
+static List<(TeamComposition TeamA, TeamComposition TeamB)> GenerateAllUniquePairingsIncludingMirrors(IReadOnlyList<TeamComposition> compositions)
+{
+    var pairings = new List<(TeamComposition, TeamComposition)>();
+    for (int i = 0; i < compositions.Count; i++)
+    {
+        for (int j = i; j < compositions.Count; j++)
+        {
+            pairings.Add((compositions[i], compositions[j]));
+        }
+    }
+
+    return pairings;
 }
 
 // =======================================================================

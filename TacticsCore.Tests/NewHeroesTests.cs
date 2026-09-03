@@ -270,28 +270,61 @@ public class NewHeroesTests
     }
 
     [Fact]
-    public void Musiker_KampfliedIstAufGroessererDistanzSchwaecher()
+    public void Musiker_KampfliedWirktAufDistanz0Und1GleichStarkUndAufDistanz2Schwaecher()
     {
-        // Bachelorarbeit-Ergänzung: dieselbe distanzabhängige Mechanik wie
-        // bei der Elfe-Heilung, jetzt generisch auch für den dauerhaften
-        // Stat-Modifikator des Liedes (siehe AbilitySystem.ApplyToUnit).
+        // Bachelorarbeit-Korrektur: Plateau-Radius (siehe EffectTemplate.PlateauRadius) -
+        // die ursprüngliche Designabsicht war ein Plateau über die Distanzen
+        // 0 UND 1 (beide gleich stark), erst ab Distanz 2 ein Abfall - keine
+        // Näherung mehr wie in der vorherigen, rein linearen Fassung.
         var state = NewState();
         var musiker = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 2), DefaultHeroes.Musiker);
-        var allyNear = new TestUnit(Id(2), Team.TeamA, new HexCoordinate(0, 1), speed: 10); // Distanz 1
-        var allyFar = new TestUnit(Id(3), Team.TeamA, new HexCoordinate(0, 0), speed: 10); // Distanz 2
+        var allyD0 = new TestUnit(Id(2), Team.TeamA, new HexCoordinate(0, 2), speed: 10); // gleiches Feld wie Musiker: Distanz 0
+        var allyD1 = new TestUnit(Id(3), Team.TeamA, new HexCoordinate(0, 1), speed: 10); // Distanz 1
+        var allyD2 = new TestUnit(Id(4), Team.TeamA, new HexCoordinate(0, 0), speed: 10); // Distanz 2
         state.AddUnit(musiker);
-        state.AddUnit(allyNear);
-        state.AddUnit(allyFar);
+        state.AddUnit(allyD0);
+        state.AddUnit(allyD1);
+        state.AddUnit(allyD2);
 
         var kampflied = musiker.Definition.Ability.Modes!.Single(m => m.Id == "kampflied");
         Assert.True(AbilitySystem.TryUseAbility(musiker, new AbilityTarget.FieldTarget(musiker.Position), state, kampflied));
 
-        int bonusNear = EffectiveStats.AttackDamage(allyNear, state) - allyNear.BaseAttackDamage;
-        int bonusFar = EffectiveStats.AttackDamage(allyFar, state) - allyFar.BaseAttackDamage;
+        int bonusD0 = EffectiveStats.AttackDamage(allyD0, state) - allyD0.BaseAttackDamage;
+        int bonusD1 = EffectiveStats.AttackDamage(allyD1, state) - allyD1.BaseAttackDamage;
+        int bonusD2 = EffectiveStats.AttackDamage(allyD2, state) - allyD2.BaseAttackDamage;
 
-        Assert.Equal(2, bonusNear); // Distanz 1: +3 - 1*1
-        Assert.Equal(1, bonusFar);  // Distanz 2: +3 - 1*2
-        Assert.True(bonusFar < bonusNear); // auf größerer Distanz schwächer
+        Assert.Equal(3, bonusD0);
+        Assert.Equal(3, bonusD1); // Plateau: exakt so stark wie Distanz 0, nicht mehr nur angenähert
+        Assert.Equal(1, bonusD2); // erst hinter dem Plateau schwächer
+        Assert.Equal(bonusD0, bonusD1);
+        Assert.True(bonusD2 < bonusD1);
+    }
+
+    [Fact]
+    public void Musiker_MarschliedWirktAufDistanz0Und1GleichStarkUndAufDistanz2GarNicht()
+    {
+        // Ergänzt den Kampflied-Test um den zweiten, in der Aufgabenstellung
+        // explizit genannten Fall: "keine Wirkung" statt nur "schwächer".
+        var state = NewState();
+        var musiker = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 2), DefaultHeroes.Musiker);
+        var allyD0 = new TestUnit(Id(2), Team.TeamA, new HexCoordinate(0, 2), speed: 10);
+        var allyD1 = new TestUnit(Id(3), Team.TeamA, new HexCoordinate(0, 1), speed: 10);
+        var allyD2 = new TestUnit(Id(4), Team.TeamA, new HexCoordinate(0, 0), speed: 10);
+        state.AddUnit(musiker);
+        state.AddUnit(allyD0);
+        state.AddUnit(allyD1);
+        state.AddUnit(allyD2);
+
+        var marschlied = musiker.Definition.Ability.Modes!.Single(m => m.Id == "marschlied");
+        Assert.True(AbilitySystem.TryUseAbility(musiker, new AbilityTarget.FieldTarget(musiker.Position), state, marschlied));
+
+        int bonusD0 = EffectiveStats.MovementRange(allyD0, state) - allyD0.MovementRange;
+        int bonusD1 = EffectiveStats.MovementRange(allyD1, state) - allyD1.MovementRange;
+        int bonusD2 = EffectiveStats.MovementRange(allyD2, state) - allyD2.MovementRange;
+
+        Assert.Equal(1, bonusD0);
+        Assert.Equal(1, bonusD1); // Plateau: exakt so stark wie Distanz 0
+        Assert.Equal(0, bonusD2); // exakt keine Wirkung mehr, nicht nur ein Rest
     }
 
     // -----------------------------------------------------------------

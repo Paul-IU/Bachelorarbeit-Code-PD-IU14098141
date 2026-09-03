@@ -165,4 +165,87 @@ public class AbilitySystemTests
             first.Select(o => ((AbilityTarget.UnitTarget)o.Target).Unit.Id),
             second.Select(o => ((AbilityTarget.UnitTarget)o.Target).Unit.Id));
     }
+
+    [Fact]
+    public void DreiGegnerAufEinemFeld_GetLegalAbilityUsesLiefertDreiGetrennteEinzelziele()
+    {
+        // Ergänzt CombatSystemTests.DreiGegnerAufEinemFeld_GetValidAttackTargetsLiefertDreiGetrennteEinzelziele
+        // (Bachelorarbeit-Verifikation Punkt C.7) um den Fähigkeiten-Pfad:
+        // derselbe ".SelectMany(state.GetUnitsAt)"-Mechanismus wie beim
+        // Grundangriff, hier für AbilitySystem.GetLegalTargets bestätigt -
+        // stehen mehrere Einheiten auf demselben Feld, erscheint auch hier
+        // JEDE als eigenes, wählbares Ziel statt nur eines je Feld.
+        var state = NewState();
+        var caster = new Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Elementarmagier);
+        var sharedField = new HexCoordinate(0, 1);
+        var enemy1 = new TestUnit(Id(2), Team.TeamB, sharedField, speed: 10);
+        var enemy2 = new TestUnit(Id(3), Team.TeamB, sharedField, speed: 10);
+        var enemy3 = new TestUnit(Id(4), Team.TeamB, sharedField, speed: 10);
+        state.AddUnit(caster);
+        state.AddUnit(enemy1);
+        state.AddUnit(enemy2);
+        state.AddUnit(enemy3);
+
+        var options = AbilitySystem.GetLegalAbilityUses(caster, state);
+        var targetIds = options.Select(o => ((AbilityTarget.UnitTarget)o.Target).Unit.Id).Distinct().ToList();
+
+        // Elementarschlag hat 2 wählbare Modi (Feuer/Erde) x 3 Ziele = 6
+        // Optionen insgesamt, aber genau DREI unterschiedliche Ziele.
+        Assert.Equal(3, targetIds.Count);
+        Assert.Contains(enemy1.Id, targetIds);
+        Assert.Contains(enemy2.Id, targetIds);
+        Assert.Contains(enemy3.Id, targetIds);
+    }
+
+    [Fact]
+    public void FlaechenfaehigkeitMitReichweite_DistanzabfallMisstAbGewaehltemZentrumNichtAbAnwender()
+    {
+        // Bachelorarbeit-Korrektur: vor dieser Korrektur maß ApplyToUnit die
+        // Distanz für ScaleWithDistance IMMER ab der Position des Anwenders -
+        // auch bei einer Flächenfähigkeit mit eigener, vom Anwender
+        // verschiedener Zielfeld-Wahl (Reichweite > 0). Bei allen neun
+        // Standardhelden blieb das folgenlos (siehe DefaultHeroes: jede
+        // AllUnitsInRadius-Fähigkeit hat Reichweite 0, das Zentrum IST dort
+        // immer das eigene Feld). Dieser Test nutzt bewusst eine testeigene
+        // Fähigkeit MIT Reichweite > 0, um genau den zuvor unerreichbaren
+        // Fall zu prüfen: ein Verbündeter GENAU auf dem gewählten
+        // Zentrumsfeld (Distanz 0 vom Zentrum) muss die VOLLE Wirkung
+        // erhalten, unabhängig davon, wie weit dieses Zentrum vom Anwender
+        // entfernt gewählt wurde.
+        var testAbility = new AbilityDefinition(
+            Id: "test-flaechenheilung",
+            DisplayName: "Test-Flächenheilung",
+            IsPassive: false,
+            TargetType: AbilityTargetType.AllUnitsInRadius,
+            Range: 3,
+            Radius: 1,
+            AreaFilter: AreaTargetFilter.AlliesOnly,
+            Effects: new[]
+            {
+                new EffectTemplate(
+                    Name: "Testheilung",
+                    IsInstant: true,
+                    InstantHeal: 20,
+                    ScaleWithDistance: true,
+                    DistanceFalloffPerStep: 5,
+                    MinimumAfterDistanceScaling: 0),
+            });
+        var casterDefinition = DefaultHeroes.Elfe with { Ability = testAbility };
+
+        var state = NewState();
+        var caster = new Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), casterDefinition);
+        var centerField = new HexCoordinate(0, 3); // Distanz 3 vom Anwender - liegt innerhalb der Reichweite 3
+        var allyOnCenter = new TestUnit(Id(2), Team.TeamA, centerField, speed: 10); // Distanz 0 vom ZENTRUM, aber Distanz 3 vom ANWENDER
+        allyOnCenter.ApplyDamage(20);
+        state.AddUnit(caster);
+        state.AddUnit(allyOnCenter);
+
+        bool used = AbilitySystem.TryUseAbility(caster, new AbilityTarget.FieldTarget(centerField), state);
+
+        Assert.True(used);
+        // Bei (fälschlicher) Distanzmessung ab dem Anwender wäre die Distanz
+        // 3, die Heilung also nur 20 - 5*3 = 5 - korrekt ab dem gewählten
+        // Zentrumsfeld gemessen ist die Distanz 0, die Heilung also voll 20.
+        Assert.Equal(allyOnCenter.MaxHitPoints, allyOnCenter.CurrentHitPoints);
+    }
 }

@@ -180,7 +180,7 @@ public sealed class MatchController
             // Erzeuger eingefügt werden kann, statt erst in der nächsten
             // Runde an die Reihe zu kommen (Anforderung 9: "handelt in der
             // Zugreihenfolge unmittelbar nach seinem Erzeuger").
-            var roundOrder = new List<Unit>(TurnOrder.ComputeRoundOrder(_state.Units, startingTeam));
+            var roundOrder = new List<Unit>(TurnOrder.ComputeRoundOrder(_state.Units, startingTeam, _state));
 
             // Nach außen melden, WELCHE Reihenfolge soeben bestimmt wurde
             // (siehe ReplayActionType.RoundOrderDetermined) - eine
