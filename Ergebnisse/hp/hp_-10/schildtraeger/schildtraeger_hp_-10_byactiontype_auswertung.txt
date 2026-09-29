@@ -1,0 +1,18 @@
+=== schildtraeger_hp_-10 (byactiontype) ===
+Laufzeit 4 min 33 s
+Partiedauer 26,43 Runden (Basis 26,92, -0,48), Rundenlimit 10,04 % (Basis 10,67 %, -0,63 pp)
+Rauschen byactiontype: RMS nan pp, groesste Einzelabweichung nan pp
+Held               Basis  Variante    Δ pp    Rang   Einordnung
+elementarmagier    63,31     63,78   +0,47       1   (kein Rauschwert)
+elfe               60,29     60,51   +0,22       2   (kein Rauschwert)
+berserker          56,87     57,31   +0,44       3   (kein Rauschwert)
+illusionist        55,96     56,31   +0,35       4   (kein Rauschwert)
+wand               52,96     53,12   +0,16       5   (kein Rauschwert)
+bogenschuetze      47,69     48,18   +0,49       6   (kein Rauschwert)
+schildtraeger      47,23     44,26   -2,97       7   (kein Rauschwert)  <- veraendert
+musiker            37,45     37,88   +0,43       8   (kein Rauschwert)
+hugger             28,23     28,65   +0,42       9   (kein Rauschwert)
+Uebrige acht Helden: RMS der Differenz 0,39 pp, groesste +0,49 pp
+Rangverschiebungen: keine
+Kompositionen mit schildtraeger (28): Mittel -1,98 pp, Mittel |Δ| 1,98 pp, Groesstwert -3,47 pp (hugger+schildtraeger+wand), kleinster -3,47 pp
+Kompositionen ohne schildtraeger (56): Mittel +0,99 pp, Mittel |Δ| 0,99 pp

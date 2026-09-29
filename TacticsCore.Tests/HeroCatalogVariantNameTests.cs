@@ -122,6 +122,21 @@ public class HeroCatalogVariantNameTests
         Assert.Equal(120, DefaultHeroes.Elfe.Ability.Effects[0].InstantHeal); // Basiskatalog unverändert
     }
 
+    /// <summary>
+    /// Negative Stufen: −2,5 % (68 / 829 / 0,5125), −5 % (66,5 → 66 und 807,5 → 808,
+    /// Halbwerte zur geraden Zahl / 0,525), −10 % (63 / 765 / 0,55).
+    /// </summary>
+    [Theory]
+    [InlineData("-2.5", 68, 829, 0.5125)]
+    [InlineData("-5", 66, 808, 0.525)]
+    [InlineData("-10", 63, 765, 0.55)]
+    public void NegativeStufen_Werte(string prozent, int schaden, int lebenspunkte, double multiplikator)
+    {
+        Assert.Equal(schaden, HeroCatalogVariants.FromName(Basis(), $"schildtraeger_dmg_{prozent}").Get("schildtraeger").BaseAttackDamage);
+        Assert.Equal(lebenspunkte, HeroCatalogVariants.FromName(Basis(), $"schildtraeger_hp_{prozent}").Get("schildtraeger").MaxHitPoints);
+        Assert.Equal(multiplikator, HeroCatalogVariants.FromName(Basis(), $"schildtraeger_ability_{prozent}").Get("schildtraeger").Ability.Effects[0].IncomingDamageMultiplier);
+    }
+
     [Theory]
     [InlineData("schildtraeger_dmg")]
     [InlineData("schildtraeger_speed_10")]

@@ -1,0 +1,18 @@
+=== schildtraeger_ability_-5 (uniform) ===
+Laufzeit 5 min 48 s
+Partiedauer 29,43 Runden (Basis 29,47, -0,04), Rundenlimit 15,33 % (Basis 15,41 %, -0,08 pp)
+Rauschen uniform: RMS 0,14 pp, groesste Einzelabweichung 0,32 pp
+Held               Basis  Variante    Δ pp    Rang   Einordnung
+elementarmagier    62,66     62,74   +0,08       1   im Rauschen
+elfe               61,81     61,80   -0,01       2   im Rauschen
+wand               55,19     55,20   +0,01       3   im Rauschen
+berserker          54,75     54,79   +0,04       4   im Rauschen
+bogenschuetze      53,43     53,46   +0,03       5   im Rauschen
+illusionist        52,90     52,90   +0,00       6   im Rauschen
+schildtraeger      51,25     51,01   -0,24       7   Grenzbereich  <- veraendert
+musiker            34,99     35,05   +0,06       8   im Rauschen
+hugger             23,04     23,06   +0,02       9   im Rauschen
+Uebrige acht Helden: RMS der Differenz 0,04 pp, groesste +0,08 pp
+Rangverschiebungen: keine
+Kompositionen mit schildtraeger (28): Mittel -0,16 pp, Mittel |Δ| 0,16 pp, Groesstwert -0,52 pp (hugger+schildtraeger+wand), kleinster -0,52 pp
+Kompositionen ohne schildtraeger (56): Mittel +0,08 pp, Mittel |Δ| 0,08 pp

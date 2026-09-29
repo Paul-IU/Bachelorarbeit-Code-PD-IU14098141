@@ -19,6 +19,15 @@ public partial class TeamSetupPanel : VBoxContainer
     private IReadOnlyList<HeroDefinition> _catalogHeroes = Array.Empty<HeroDefinition>();
     private IReadOnlyList<HexCoordinate> _fields = Array.Empty<HexCoordinate>();
 
+    /// <summary>
+    /// Zufallsquelle NUR für die Zufallsknöpfe der Aufstellung. Sie füllt lediglich
+    /// die Auswahllisten vor - die Auswahl ist danach sichtbar und wird wie eine
+    /// Handauswahl übernommen. Auf den Partieverlauf hat sie keinen Einfluss; der
+    /// läuft weiterhin ausschließlich über den Seed (siehe SetupScreen) und bleibt
+    /// damit reproduzierbar.
+    /// </summary>
+    private static readonly Random SetupRandom = new();
+
     public string TeamLabel { get; set; } = "Team";
 
     public override void _Ready()
@@ -53,6 +62,10 @@ public partial class TeamSetupPanel : VBoxContainer
             _heroDropdowns.Add(dropdown);
         }
 
+        var randomHeroesButton = new Button { Text = "Zufällige Helden" };
+        randomHeroesButton.Pressed += RandomizeHeroes;
+        AddChild(randomHeroesButton);
+
         var controllerRow = new HBoxContainer();
         controllerRow.AddChild(new Label { Text = "Gesteuert von:", CustomMinimumSize = new Vector2(90, 0) });
         _controllerDropdown = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -62,10 +75,34 @@ public partial class TeamSetupPanel : VBoxContainer
         }
         _controllerDropdown.Selected = 0; // Mensch - bisheriges Standardverhalten
         controllerRow.AddChild(_controllerDropdown);
+        var randomAgentButton = new Button { Text = "Zufälliger Agent" };
+        randomAgentButton.Pressed += RandomizeAgent;
+        controllerRow.AddChild(randomAgentButton);
         AddChild(controllerRow);
 
         _errorLabel = new Label { Modulate = new Color(1f, 0.4f, 0.4f) };
         AddChild(_errorLabel);
+    }
+
+    /// <summary>Wählt je Startfeld einen Helden zufällig - alle verschieden (wie bei der Handauswahl gefordert).</summary>
+    private void RandomizeHeroes()
+    {
+        var indices = Enumerable.Range(0, _catalogHeroes.Count).OrderBy(_ => SetupRandom.Next()).ToList();
+        for (int i = 0; i < _heroDropdowns.Count && i < indices.Count; i++)
+        {
+            _heroDropdowns[i].Selected = indices[i];
+        }
+
+        _errorLabel.Text = "";
+    }
+
+    /// <summary>Wählt einen der Agenten zufällig - nie die menschliche Steuerung.</summary>
+    private void RandomizeAgent()
+    {
+        var agentIndices = Enumerable.Range(0, TeamControllers.All.Count)
+            .Where(i => TeamControllers.All[i] != TeamControllers.Human)
+            .ToList();
+        _controllerDropdown.Selected = agentIndices[SetupRandom.Next(agentIndices.Count)];
     }
 
     /// <summary>
