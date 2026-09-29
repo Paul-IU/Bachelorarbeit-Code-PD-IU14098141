@@ -1,0 +1,50 @@
+
+=== Agent: byactiontype ===
+Kontrolle: Paarungen ohne Wand 1596, davon abweichend 0
+Partiedauer gesamt: 35,807 -> 31,760 Runden; Rundenlimit 4,12 % -> 2,68 %
+Partiedauer mit Wand: 41,921 -> 34,602 Runden; Rundenlimit 5,17 % -> 2,56 %
+
+Held              vorher  nachher    Δ pp  Seed-Rauschen
+elfe               59,73    57,90   -1,83          -0,13
+elementarmagier    59,47    59,44   -0,03          -0,14
+illusionist        57,06    56,40   -0,66          -0,11
+berserker          55,87    54,83   -1,04           0,14
+schildtraeger      46,56    45,43   -1,13          -0,02
+bogenschuetze      45,93    45,87   -0,06           0,20
+wand               45,92    51,11    5,19           0,32
+hugger             39,88    39,85   -0,03           0,01
+musiker            39,57    39,17   -0,40          -0,26
+RMS ueber 9 Helden: Aenderung 1,92 pp, Seed-Rauschen 0,18 pp
+Rangfolge nachher: elementarmagier 59,44, elfe 57,90, illusionist 56,40, berserker 54,83, wand 51,11, bogenschuetze 45,87, schildtraeger 45,43, hugger 39,85, musiker 39,17
+Wand Rang nachher: 5 von 9
+Tank-Rangfolge vorher: illusionist 57,06 > schildtraeger 46,56 > wand 45,92
+Tank-Rangfolge nachher: illusionist 56,40 > wand 51,11 > schildtraeger 45,43
+Wand je Zug (vorher -> nachher): Bewegungen 0,9968 -> 0,9960, Angriffe 0,2187 -> 0,3151, Faehigkeit 0,7811 -> 0,4394; Partiedauer 39,1152 -> 33,4208
+Kompositionen mit Wand (28): mittlere Aenderung 3,46 pp, min -0,14, max 7,80
+Groesste Rueckgaenge: berserker+illusionist+schildtraeger -3,37; illusionist+musiker+schildtraeger -3,29; elfe+illusionist+schildtraeger -3,11
+Groesste Zuwaechse:   hugger+illusionist+wand 7,80; bogenschuetze+hugger+wand 5,65; berserker+hugger+wand 5,61
+
+=== Agent: uniform ===
+Kontrolle: Paarungen ohne Wand 1596, davon abweichend 0
+Partiedauer gesamt: 41,049 -> 36,821 Runden; Rundenlimit 6,60 % -> 4,36 %
+Partiedauer mit Wand: 46,968 -> 39,320 Runden; Rundenlimit 8,09 % -> 4,05 %
+
+Held              vorher  nachher    Δ pp  Seed-Rauschen
+elfe               61,57    59,94   -1,63           0,13
+elementarmagier    58,20    58,31    0,11          -0,15
+berserker          53,05    52,65   -0,40          -0,16
+illusionist        52,75    52,51   -0,24           0,21
+wand               50,79    53,12    2,33          -0,15
+bogenschuetze      50,46    51,08    0,62          -0,05
+schildtraeger      50,31    49,64   -0,67           0,08
+hugger             38,35    38,05   -0,30          -0,10
+musiker            34,51    34,69    0,18           0,19
+RMS ueber 9 Helden: Aenderung 1,01 pp, Seed-Rauschen 0,14 pp
+Rangfolge nachher: elfe 59,94, elementarmagier 58,31, wand 53,12, berserker 52,65, illusionist 52,51, bogenschuetze 51,08, schildtraeger 49,64, hugger 38,05, musiker 34,69
+Wand Rang nachher: 3 von 9
+Tank-Rangfolge vorher: illusionist 52,75 > wand 50,79 > schildtraeger 50,31
+Tank-Rangfolge nachher: wand 53,12 > illusionist 52,51 > schildtraeger 49,64
+Wand je Zug (vorher -> nachher): Bewegungen 0,9984 -> 0,9983, Angriffe 0,2328 -> 0,3096, Faehigkeit 0,7669 -> 0,4315; Partiedauer 44,4376 -> 38,3237
+Kompositionen mit Wand (28): mittlere Aenderung 1,55 pp, min -0,98, max 4,42
+Groesste Rueckgaenge: elfe+hugger+schildtraeger -2,56; berserker+elfe+schildtraeger -2,48; elfe+hugger+musiker -2,46
+Groesste Zuwaechse:   hugger+musiker+wand 4,42; bogenschuetze+schildtraeger+wand 3,65; bogenschuetze+hugger+wand 3,53

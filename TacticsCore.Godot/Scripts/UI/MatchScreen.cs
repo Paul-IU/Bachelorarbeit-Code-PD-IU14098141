@@ -1,7 +1,9 @@
 using Godot;
 using TacticsCore;
 using TacticsCore.Agents;
+using TacticsCore.Batch;
 using TacticsCore.Heroes;
+using TacticsCore.Setup;
 using TacticsCore.Hex;
 using TacticsCore.Match;
 using TacticsCore.Units;
@@ -41,6 +43,18 @@ public partial class MatchScreen : Control
     private EventAnimationPlayer _animator = null!;
     private SpinBox _speedSpinBox = null!;
     private CheckBox _skipCheckBox = null!;
+    private Label _matchInfoLabel = null!;
+    private MatchSummaryPanel _summary = null!;
+
+    /// <summary>Zustand zu Partiebeginn - liefert der Abschlussansicht Namen und Team aller angetretenen Helden.</summary>
+    private BoardRenderModel? _initialModel;
+    private SpinBox _turnDelaySpinBox = null!;
+    private Button _pauseButton = null!;
+
+    /// <summary>Die aktuell angezeigte Partie - Ereignisse einer früheren (verlassenen) Partie werden ignoriert.</summary>
+    private GameSession? _session;
+    private TurnPacer? _pacer;
+    private MatchSetupRequest? _request;
 
     private GodotHumanInputSource? _pendingHumanInput;
     private HexCoordinate? _currentActingField;
@@ -92,8 +106,36 @@ public partial class MatchScreen : Control
         leftColumn.AddThemeConstantOverride("separation", 6);
 
         var backButton = new Button { Text = "< Zurück zum Menü" };
-        backButton.Pressed += () => BackRequested?.Invoke();
+        backButton.Pressed += () =>
+        {
+            StopCurrentSession();
+            BackRequested?.Invoke();
+        };
         leftColumn.AddChild(backButton);
+
+        // Seed/Startteam/Steuerung der laufenden Partie - zum Zuordnen von
+        // Beobachtungen und zum Nachspielen (siehe Konsolenmodus "play-one").
+        _matchInfoLabel = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        leftColumn.AddChild(_matchInfoLabel);
+
+        // Tempo der AGENTEN-Züge (Wartezeit nach jedem Zug) und Pause - siehe
+        // TurnPacer; wirkt nur auf das Tempo, nie auf den Verlauf.
+        var delayRow = new HBoxContainer();
+        delayRow.AddChild(new Label { Text = "Pause je Agentenzug (ms):" });
+        _turnDelaySpinBox = new SpinBox { MinValue = 0, MaxValue = 10000, Step = 100, Value = 800, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _turnDelaySpinBox.ValueChanged += value =>
+        {
+            if (_pacer is not null)
+            {
+                _pacer.DelayMilliseconds = (int)value;
+            }
+        };
+        delayRow.AddChild(_turnDelaySpinBox);
+        leftColumn.AddChild(delayRow);
+
+        _pauseButton = new Button { Text = "Anhalten" };
+        _pauseButton.Pressed += TogglePause;
+        leftColumn.AddChild(_pauseButton);
 
         // Animationsgeschwindigkeit/Überspringen (Vorgabe Teil B: "eine
         // einstellbare Geschwindigkeit, inklusive einer Option zum
@@ -148,6 +190,16 @@ public partial class MatchScreen : Control
         // aber nichts an der Spiellogik selbst (siehe EventAnimationPlayer).
         _animator = new EventAnimationPlayer { Board = _board };
         AddChild(_animator);
+
+        // Abschlussansicht (liegt über allem, erst am Partieende sichtbar).
+        _summary = new MatchSummaryPanel { Visible = false };
+        _summary.BackRequested += () =>
+        {
+            _summary.Visible = false;
+            StopCurrentSession();
+            BackRequested?.Invoke();
+        };
+        AddChild(_summary);
         _animator.BusyChanged += busy => _actionPanel.InteractionEnabled = !busy;
 
         _actionPanel.ActionChosen += OnActionChosen;
@@ -158,6 +210,8 @@ public partial class MatchScreen : Control
     /// <summary>Baut die Ausgangslage aus <paramref name="request"/> auf und startet die Partie.</summary>
     public void StartMatch(MatchSetupRequest request)
     {
+        StopCurrentSession();
+        _request = request;
         _log.Clear();
         _describer = new EventDescriber();
         _turnOrderTracker = new TurnOrderTracker();
@@ -169,34 +223,102 @@ public partial class MatchScreen : Control
         // Überlagerung (Position/Alpha) von der alten Partie übrig bleiben.
         _animator.Reset();
 
+        // Aufbau EXAKT wie im Batch-Lauf (AusgangslagenGenerator.BuildGameState):
+        // Ids 1-3 für Team A, 101-103 für Team B in der Reihenfolge der
+        // Startfelder. Früher wurden hier Guid.NewGuid()-Ids vergeben - eine
+        // eigene Zufallsquelle, die über Id-Sortierungen den Verlauf gegenüber
+        // dem Batch-Lauf verändern konnte. Das beginnende Team im GameSetup ist
+        // für den Aufbau ohne Bedeutung; es wird unten separat übergeben.
         var board = new GameBoard();
-        var state = new GameState(board);
-
-        foreach (var (hero, field) in request.TeamA.Assignments)
-        {
-            state.AddUnit(new Hero(Guid.NewGuid(), Team.TeamA, field, hero));
-        }
-        foreach (var (hero, field) in request.TeamB.Assignments)
-        {
-            state.AddUnit(new Hero(Guid.NewGuid(), Team.TeamB, field, hero));
-        }
+        var setup = new GameSetup(
+            request.TeamA.Assignments.Select(a => (a.Hero, a.Field)).ToList(),
+            request.TeamB.Assignments.Select(a => (a.Hero, a.Field)).ToList(),
+            request.StartingTeam ?? Team.TeamA);
+        var state = AusgangslagenGenerator.BuildGameState(setup, board);
 
         var initialModel = BoardRenderModel.FromGameState(state);
+        _initialModel = initialModel;
+        _summary.Visible = false;
         _lastModel = initialModel;
         _board.SetRenderModel(initialModel);
         _hud.UpdateFrom(initialModel);
         _hud.UpdateTurnOrder(_turnOrderTracker.BuildDisplayOrder(initialModel));
 
-        var teamAAgent = BuildAgent(request.TeamA.IsHuman);
-        var teamBAgent = BuildAgent(request.TeamB.IsHuman);
+        var teamAAgent = BuildAgent(request.TeamA, Team.TeamA);
+        var teamBAgent = BuildAgent(request.TeamB, Team.TeamB);
 
-        var session = new GameSession(state, teamAAgent, teamBAgent, request.Seed, RunOnMainThread);
-        session.EventOccurred += OnSessionEvent;
-        session.MatchFinished += OnMatchFinished;
+        var pacedTeams = new HashSet<Team>();
+        if (!request.TeamA.IsHuman) pacedTeams.Add(Team.TeamA);
+        if (!request.TeamB.IsHuman) pacedTeams.Add(Team.TeamB);
+        _pacer = new TurnPacer((int)_turnDelaySpinBox.Value);
+        _pauseButton.Text = "Anhalten";
+        _pauseButton.Disabled = pacedTeams.Count == 0;
+
+        _matchInfoLabel.Text =
+            $"Seed: {request.Seed}\n" +
+            $"Beginnt: {(request.StartingTeam is Team t ? t.ToString() : "zufällig aus Seed")}\n" +
+            $"Team A: {request.TeamA.Controller}\n" +
+            $"Team B: {request.TeamB.Controller}";
+
+        var session = new GameSession(state, teamAAgent, teamBAgent, request.Seed, RunOnMainThread, request.StartingTeam, _pacer, pacedTeams);
+        _session = session;
+        session.EventOccurred += (entry, model) =>
+        {
+            if (_session == session) OnSessionEvent(entry, model);
+        };
+        session.MatchFinished += result =>
+        {
+            if (_session == session) OnMatchFinished(result);
+        };
         session.Start();
     }
 
-    private IAgent BuildAgent(bool isHuman) => isHuman ? new HumanAgent(CreateInputSource()) : new RandomAgent();
+    /// <summary>
+    /// Mensch oder Agent je Team. Agenten entstehen über dieselbe Fabrik wie im
+    /// Batch-Lauf (<see cref="AgentConfiguration.FromName"/>) - keine eigene
+    /// Godot-Variante.
+    /// </summary>
+    private IAgent BuildAgent(TeamSetupChoice choice, Team team)
+    {
+        if (choice.IsHuman)
+        {
+            return new HumanAgent(CreateInputSource());
+        }
+
+        var configuration = AgentConfiguration.FromName(choice.Controller);
+        return team == Team.TeamA ? configuration.CreateTeamAAgent() : configuration.CreateTeamBAgent();
+    }
+
+    private void TogglePause()
+    {
+        if (_pacer is null)
+        {
+            return;
+        }
+
+        if (_pacer.IsPaused)
+        {
+            _pacer.Resume();
+            _pauseButton.Text = "Anhalten";
+        }
+        else
+        {
+            _pacer.Pause();
+            _pauseButton.Text = "Fortsetzen";
+        }
+    }
+
+    /// <summary>
+    /// Löst die Anzeige von der laufenden Partie: ein angehaltener Taktgeber
+    /// gibt den Hintergrundthread frei (die Partie rechnet dort ohne Pause zu
+    /// Ende), ihre restlichen Ereignisse werden nicht mehr angezeigt.
+    /// </summary>
+    private void StopCurrentSession()
+    {
+        _pacer?.Cancel();
+        _pacer = null;
+        _session = null;
+    }
 
     private GodotHumanInputSource CreateInputSource()
     {
@@ -267,5 +389,27 @@ public partial class MatchScreen : Control
         _hud.ShowMatchEnded(result.Winner, result.EndReason, result.RoundsPlayed);
         _actionPanel.Clear();
         _board.ClearHighlights();
+        _pauseButton.Disabled = true;
+
+        if (_initialModel is not null && _lastModel is not null)
+        {
+            _summary.Present(result, _initialModel, _lastModel);
+        }
+
+        // Fingerabdruck des Verlaufs (siehe ReplayFingerprint) - gleicher Wert
+        // im Konsolenprogramm = gleicher Verlauf. Bei reinen Agentenpartien
+        // zusätzlich der passende Befehl zum Gegenprüfen.
+        string fingerprint = ReplayFingerprint.Compute(result.Replay!.Entries);
+        _log.AppendLine($"Partie beendet. Fingerabdruck des Verlaufs: {fingerprint}");
+        GD.Print($"Fingerabdruck des Verlaufs: {fingerprint}");
+
+        if (_request is { } request && !request.TeamA.IsHuman && !request.TeamB.IsHuman)
+        {
+            string heroes = string.Join(" ", request.TeamA.Assignments.Concat(request.TeamB.Assignments).Select(a => a.Hero.Id));
+            string start = request.StartingTeam switch { Team.TeamA => "A", Team.TeamB => "B", _ => "seed" };
+            string command = $"dotnet run --project TacticsCore.Demo -c Release -- play-one {heroes} {start} {request.Seed} {request.TeamA.Controller} {request.TeamB.Controller}";
+            _log.AppendLine($"Gegenprüfen im Konsolenprogramm: {command}");
+            GD.Print($"Gegenprüfen: {command}");
+        }
     }
 }

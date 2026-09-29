@@ -1,6 +1,7 @@
 using Godot;
 using TacticsCore.Board;
 using TacticsCore.Heroes;
+using TacticsCore.Units;
 using TacticsCoreGodot.Setup;
 using GameBoard = TacticsCore.Board.Board;
 
@@ -8,14 +9,16 @@ namespace TacticsCoreGodot.UI;
 
 /// <summary>
 /// Aufstellungsbildschirm vor Partiebeginn (Vorgabe Punkt 6): beide Teams
-/// zusammenstellen (Helden je Startfeld, Mensch/Zufallsagent), Seed
-/// eingeben, Partie starten.
+/// zusammenstellen (Helden je Startfeld, Steuerung durch Mensch oder einen
+/// der Agenten des Batch-Laufs), Seed und beginnendes Team festlegen, Partie
+/// starten.
 /// </summary>
 public partial class SetupScreen : Control
 {
     private TeamSetupPanel _teamAPanel = null!;
     private TeamSetupPanel _teamBPanel = null!;
     private SpinBox _seedSpinBox = null!;
+    private OptionButton _startingTeamDropdown = null!;
 
     /// <summary>Der Benutzer hat eine vollständige, gültige Aufstellung bestätigt.</summary>
     public event Action<MatchSetupRequest>? StartRequested;
@@ -52,11 +55,27 @@ public partial class SetupScreen : Control
         _teamAPanel.Configure(catalog.All, teamAFields);
         _teamBPanel.Configure(catalog.All, teamBFields);
 
+        // Bewusst KEIN "zufälliger Seed"-Knopf: die Oberfläche soll keine
+        // eigene Zufallsquelle einführen. Der Seed ist immer vorgegeben
+        // (Standard 1) und wird in der Partie angezeigt.
         var seedRow = new HBoxContainer();
         seedRow.AddChild(new Label { Text = "Seed (für reproduzierbare Partien):" });
-        _seedSpinBox = new SpinBox { MinValue = 0, MaxValue = int.MaxValue, Step = 1, Value = 1 };
+        _seedSpinBox = new SpinBox { MinValue = int.MinValue, MaxValue = int.MaxValue, Step = 1, Value = 1, CustomMinimumSize = new Vector2(160, 0) };
         seedRow.AddChild(_seedSpinBox);
         root.AddChild(seedRow);
+
+        // Im Batch-Lauf ist das beginnende Team Teil der Ausgangslage und wird
+        // NICHT gezogen - zum Nachspielen einer Batch-Partie hier fest vorgeben
+        // (siehe Konsolenmodus "batch-match", der den Wert ausgibt).
+        var startRow = new HBoxContainer();
+        startRow.AddChild(new Label { Text = "Beginnendes Team:" });
+        _startingTeamDropdown = new OptionButton();
+        _startingTeamDropdown.AddItem("Zufällig (aus Seed)");
+        _startingTeamDropdown.AddItem("Team A");
+        _startingTeamDropdown.AddItem("Team B");
+        _startingTeamDropdown.Selected = 0; // bisheriges Verhalten
+        startRow.AddChild(_startingTeamDropdown);
+        root.AddChild(startRow);
 
         var startButton = new Button { Text = "Partie starten" };
         startButton.Pressed += OnStartPressed;
@@ -74,6 +93,7 @@ public partial class SetupScreen : Control
             return; // die einzelnen Team-Panels zeigen ihre Fehlermeldung bereits selbst an
         }
 
-        StartRequested?.Invoke(new MatchSetupRequest(teamA, teamB, (int)_seedSpinBox.Value));
+        Team? startingTeam = _startingTeamDropdown.Selected switch { 1 => Team.TeamA, 2 => Team.TeamB, _ => null };
+        StartRequested?.Invoke(new MatchSetupRequest(teamA, teamB, (int)_seedSpinBox.Value, startingTeam));
     }
 }

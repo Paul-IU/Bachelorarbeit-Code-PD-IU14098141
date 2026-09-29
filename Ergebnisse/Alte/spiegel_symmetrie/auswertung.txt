@@ -1,0 +1,48 @@
+
+=== Agent: byactiontype ===
+Paarungen ohne Hugger: 1596, davon abweichend (Seed 2026 vorher vs nachher): 0
+Paarungen mit Hugger:  1974, davon mit geaenderter Sieganzahl: 1227
+
+Bereinigte Siegquote je Held (Prozent)
+Held              vorher  nachher  Δ Korrektur  Seed 2027  Δ Seed-Rauschen
+elfe               60,70    60,66        -0,04      60,53            -0,13
+elementarmagier    58,98    58,91        -0,07      58,77            -0,14
+illusionist        57,87    57,90         0,03      57,79            -0,11
+berserker          56,30    56,15        -0,15      56,29             0,14
+schildtraeger      47,62    47,56        -0,06      47,54            -0,02
+bogenschuetze      45,13    45,13         0,00      45,33             0,20
+wand               42,64    42,75         0,11      43,07             0,32
+musiker            40,38    40,40         0,02      40,14            -0,26
+hugger             40,37    40,53         0,16      40,54             0,01
+Effektgroesse (RMS ueber 9 Helden): Korrektur 0,09 pp, reines Seed-Rauschen 0,18 pp
+Hugger: Aenderung durch die Korrektur 0,16 pp; groesste Seed-Abweichung eines Helden 0,32 pp
+Kompositionen mit Hugger (28): mittlere Aenderung durch Korrektur 0,113 pp (SE 0,118; t = 0,95), RMS 0,63 pp; RMS reines Seed-Rauschen 1,10 pp
+Kompositionen ohne Hugger (56): mittlere Aenderung durch Korrektur -0,055 pp (SE 0,035; t = -1,54), RMS 0,27 pp; RMS reines Seed-Rauschen 0,84 pp
+Siege der Hugger-Seite, 1568 Paarungen, Korrektur (gleicher Seed): Mittel 0,119 Siege je 72 Partien (SE 0,087; t = 1,36), RMS 3,45
+Siege der Hugger-Seite, 1568 Paarungen, Seed-Wechsel 2026->2027 (Referenz): Mittel 0,007 Siege je 72 Partien (SE 0,144; t = 0,05), RMS 5,70
+Spiegelzeilen Seed 2026: 84 Zeilen, 6048 Partien: Team A 3054 (50,50%), Team B 2939 (48,59%), Remis 55; Anteil Team A an entschiedenen 50,96%, z = 1,49; Chi-Quadrat 101,9 bei 84 Zeilen; exakt 50:50 in 7 Zeilen
+Spiegelzeilen Seed 2027: 84 Zeilen, 6048 Partien: Team A 2984 (49,34%), Team B 2993 (49,49%), Remis 71; Anteil Team A an entschiedenen 49,92%, z = -0,12; Chi-Quadrat 89,2 bei 84 Zeilen; exakt 50:50 in 5 Zeilen
+
+=== Agent: uniform ===
+Paarungen ohne Hugger: 1596, davon abweichend (Seed 2026 vorher vs nachher): 0
+Paarungen mit Hugger:  1974, davon mit geaenderter Sieganzahl: 1246
+
+Bereinigte Siegquote je Held (Prozent)
+Held              vorher  nachher  Δ Korrektur  Seed 2027  Δ Seed-Rauschen
+elfe               62,40    62,36        -0,04      62,49             0,13
+elementarmagier    57,68    57,62        -0,06      57,47            -0,15
+illusionist        53,62    53,64         0,02      53,85             0,21
+berserker          53,61    53,68         0,07      53,52            -0,16
+schildtraeger      51,29    51,26        -0,03      51,34             0,08
+bogenschuetze      49,57    49,63         0,06      49,58            -0,05
+wand               47,90    47,92         0,02      47,77            -0,15
+hugger             38,80    38,84         0,04      38,74            -0,10
+musiker            35,13    35,04        -0,09      35,23             0,19
+Effektgroesse (RMS ueber 9 Helden): Korrektur 0,05 pp, reines Seed-Rauschen 0,14 pp
+Hugger: Aenderung durch die Korrektur 0,04 pp; groesste Seed-Abweichung eines Helden 0,21 pp
+Kompositionen mit Hugger (28): mittlere Aenderung durch Korrektur 0,030 pp (SE 0,117; t = 0,25), RMS 0,61 pp; RMS reines Seed-Rauschen 0,89 pp
+Kompositionen ohne Hugger (56): mittlere Aenderung durch Korrektur -0,017 pp (SE 0,038; t = -0,44), RMS 0,28 pp; RMS reines Seed-Rauschen 0,80 pp
+Siege der Hugger-Seite, 1568 Paarungen, Korrektur (gleicher Seed): Mittel 0,033 Siege je 72 Partien (SE 0,093; t = 0,35), RMS 3,67
+Siege der Hugger-Seite, 1568 Paarungen, Seed-Wechsel 2026->2027 (Referenz): Mittel -0,078 Siege je 72 Partien (SE 0,142; t = -0,55), RMS 5,62
+Spiegelzeilen Seed 2026: 84 Zeilen, 6048 Partien: Team A 2968 (49,07%), Team B 2984 (49,34%), Remis 96; Anteil Team A an entschiedenen 49,87%, z = -0,21; Chi-Quadrat 91,5 bei 84 Zeilen; exakt 50:50 in 10 Zeilen
+Spiegelzeilen Seed 2027: 84 Zeilen, 6048 Partien: Team A 2930 (48,45%), Team B 3019 (49,92%), Remis 99; Anteil Team A an entschiedenen 49,25%, z = -1,15; Chi-Quadrat 101,1 bei 84 Zeilen; exakt 50:50 in 8 Zeilen

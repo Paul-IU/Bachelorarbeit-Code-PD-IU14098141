@@ -14,11 +14,17 @@ public static class UnitDefaults
     /// <summary>Bewegungsreichweite in Feldern pro Zug.</summary>
     public const int MovementRange = 2;
 
-    /// <summary>Maximale Lebenspunkte.</summary>
-    public const int MaxHitPoints = 50;
+    /// <summary>
+    /// Maximale Lebenspunkte. Bachelorarbeit-Korrektur ("Faktor-10-Skalierung",
+    /// siehe Klassendokumentation von <see cref="Heroes.DefaultHeroes"/>):
+    /// 50 -&gt; 500, wie alle Kampfwerte um den Faktor 10 angehoben, damit auch
+    /// kleine Prozentänderungen (siehe <see cref="Heroes.HeroCatalogVariants"/>)
+    /// bei ganzzahliger Rundung sichtbar bleiben.
+    /// </summary>
+    public const int MaxHitPoints = 500;
 
-    /// <summary>Schaden eines Grundangriffs.</summary>
-    public const int BaseAttackDamage = 10;
+    /// <summary>Schaden eines Grundangriffs. Bachelorarbeit-Korrektur: ebenfalls um den Faktor 10 skaliert (10 -&gt; 100), siehe MaxHitPoints.</summary>
+    public const int BaseAttackDamage = 100;
 
     /// <summary>
     /// Reichweite des Grundangriffs in Hex-Distanz. 1 bedeutet: das eigene

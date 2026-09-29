@@ -47,7 +47,7 @@ public class PlausibilityTests
                 state.AddUnit(new Unit(new Guid(counter++, 0, 0, new byte[8]), Team.TeamB, startField.Coordinate));
             }
 
-            var result = new MatchController(state, new RandomAgent(), new RandomAgent(), seed).Run();
+            var result = new MatchController(state, new RandomAgentByActionType(), new RandomAgentByActionType(), seed).Run();
 
             switch (result.Winner)
             {

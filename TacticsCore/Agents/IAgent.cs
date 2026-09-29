@@ -7,8 +7,10 @@ namespace TacticsCore.Agents;
 /// Entscheidungslogik für eine Seite der Partie. Der
 /// <see cref="MatchController"/> kennt ausschließlich diese Schnittstelle
 /// und trifft keinerlei Annahme über die konkrete Strategie dahinter -
-/// aktuell existiert nur <see cref="RandomAgent"/>, spätere regelbasierte
-/// oder gelernte Agenten treten hier an dieselbe Stelle, ohne dass sich an
+/// aktuell existieren <see cref="RandomAgentByActionType"/> und
+/// <see cref="RandomAgentUniform"/> (zwei Varianten mit unterschiedlicher
+/// Auswahlregel, siehe dort), spätere regelbasierte oder gelernte Agenten
+/// treten hier an dieselbe Stelle, ohne dass sich an
 /// der Rundenverwaltung etwas ändern müsste.
 ///
 /// Ein Agent trägt bewusst KEINEN eigenen Zufallszustand (kein Random-Feld,

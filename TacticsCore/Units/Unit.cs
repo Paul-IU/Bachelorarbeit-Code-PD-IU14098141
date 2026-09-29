@@ -127,13 +127,23 @@ public class Unit
     /// <summary>
     /// Erzeugt eine temporäre Einheit ("Klon") für <paramref name="creator"/>
     /// (Anforderung 9): startet auf dessen aktuellem Feld, im selben Team,
-    /// mit dessen Bewegungsreichweite, aber genau 1 HP - der Klon
+    /// mit dessen Bewegungsreichweite, aber genau 10 HP - der Klon
     /// "absorbiert genau eine Schadensinstanz vollständig und verschwindet
-    /// danach", was sich mit MaxHitPoints=1 automatisch aus der
-    /// bestehenden HP-/Niederlage-Logik ergibt (jeder Treffer, gleich
-    /// welcher Schadenshöhe, bringt die HP auf 0 - kein Sonderfall in
-    /// CombatSystem nötig). Grundschaden und Angriffsreichweite sind 0, da
-    /// der Klon ohnehin nicht angreifen darf (siehe
+    /// danach", was sich automatisch aus der bestehenden HP-/Niederlage-
+    /// Logik ergibt, SOLANGE MaxHitPoints unter dem kleinstmöglichen
+    /// tatsächlichen Treffer liegt (jeder Treffer bringt die HP dann auf 0 -
+    /// kein Sonderfall in CombatSystem nötig). Bachelorarbeit-Korrektur
+    /// ("Faktor-10-Skalierung", siehe Klassendokumentation von
+    /// <see cref="Heroes.DefaultHeroes"/>): war zuvor 1 - nach der
+    /// Skalierung ALLER Kampfwerte um den Faktor 10 ist der kleinstmögliche
+    /// tatsächliche Treffer im Katalog ebenfalls 10 (z.B. der letzte,
+    /// abgeklungene Verbrennungs-Tick des Elementarmagiers), 10 HP
+    /// erfüllen die Eigenschaft also weiterhin exakt - ein unverändertes
+    /// MaxHitPoints=1 hätte densel­ben Effekt gehabt (jeder Treffer ≥1
+    /// besiegt den Klon so oder so), 10 spiegelt aber konsistent dieselbe
+    /// Skalierung wie alle anderen HP-Werte wider, statt als einzige
+    /// Ausnahme unskaliert zu bleiben. Grundschaden und Angriffsreichweite
+    /// sind 0, da der Klon ohnehin nicht angreifen darf (siehe
     /// <see cref="Combat.CombatSystem"/>).
     ///
     /// Die Id wird bewusst NICHT über <c>Guid.NewGuid()</c> erzeugt, sondern
@@ -155,11 +165,27 @@ public class Unit
     /// </param>
     public static Unit CreateClone(Unit creator, string? creatorDisplayName = null)
     {
-        var clone = new Unit(DeriveCloneId(creator.Id), creator.Team, creator.Position, creator.MovementRange, maxHitPoints: 1, baseAttackDamage: 0, speed: 0, attackRange: 0);
+        var clone = new Unit(DeriveCloneId(creator.Id), creator.Team, creator.Position, creator.MovementRange, maxHitPoints: 10, baseAttackDamage: 0, speed: 0, attackRange: 0);
         clone.IsClone = true;
         clone.CreatorId = creator.Id;
         clone.DisplayNameOverride = $"Klon von {creatorDisplayName ?? "Standardfigur"}";
         return clone;
+    }
+
+    /// <summary>
+    /// Unabhängige Kopie mit identischem Zustand (Id, Position, HP, Klon-
+    /// Kennzeichen) - ausschließlich für <see cref="TacticsCore.GameState.CloneForSimulation"/>.
+    /// </summary>
+    internal virtual Unit CopyForSimulation() => CopyStateTo(new Unit(Id, Team, Position, MovementRange, MaxHitPoints, BaseAttackDamage, Speed, AttackRange));
+
+    /// <summary>Überträgt den veränderlichen Zustand auf eine frisch konstruierte Kopie (auch für Unterklassen).</summary>
+    private protected Unit CopyStateTo(Unit copy)
+    {
+        copy.CurrentHitPoints = CurrentHitPoints;
+        copy.IsClone = IsClone;
+        copy.CreatorId = CreatorId;
+        copy.DisplayNameOverride = DisplayNameOverride;
+        return copy;
     }
 
     private static Guid DeriveCloneId(Guid creatorId)

@@ -90,7 +90,7 @@ public class HumanAgentTests
         }
 
         var humanAgent = new HumanAgent(new FakeHumanInputSource(index: 0));
-        var controller = new MatchController(state, humanAgent, new TacticsCore.Agents.RandomAgent(), seed: 1);
+        var controller = new MatchController(state, humanAgent, new TacticsCore.Agents.RandomAgentByActionType(), seed: 1);
 
         var result = controller.Run();
 

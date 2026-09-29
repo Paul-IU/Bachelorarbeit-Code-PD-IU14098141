@@ -13,5 +13,5 @@ public static class MatchRules
     /// prozentualer HP-Anteil, dann Unentschieden) entschieden wird, statt
     /// über die Auslöschung eines Teams.
     /// </summary>
-    public const int RoundLimit = 100;
+    public const int RoundLimit = 50;
 }

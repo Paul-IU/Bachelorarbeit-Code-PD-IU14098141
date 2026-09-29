@@ -1,5 +1,7 @@
+using TacticsCore.Abilities;
 using TacticsCore.Board;
 using TacticsCore.Effects;
+using TacticsCore.Heroes;
 using TacticsCore.Hex;
 using TacticsCore.Match;
 using TacticsCore.Tests.TestSupport;
@@ -176,10 +178,10 @@ public class MatchControllerTests
     }
 
     // -----------------------------------------------------------------
-    // EFFEKT-ZEITPUNKT (Punkt D der Bachelorarbeit-Korrektur): Ticken und
-    // Ablaufen ausschließlich zu BEGINN des eigenen Zugs der betroffenen
-    // Einheit, noch bevor überhaupt eine Aktion möglich ist - siehe die
-    // ausführliche Begründung in EffectSystem und ExecuteTurn oben. Vorher
+    // EFFEKT-ZEITPUNKT (Punkt D der Bachelorarbeit-Korrektur): Schadens-Tick
+    // zu BEGINN des Zugs des ZIELS, Dauer-Tick zu BEGINN des Zugs des
+    // ANWENDERS, jeweils noch bevor überhaupt eine Aktion möglich ist - siehe
+    // die ausführliche Begründung in EffectSystem und ExecuteTurn oben. Vorher
     // tickte ein Effekt faktisch erst im Zusammenhang mit der ersten
     // Teilaktion der Einheit, wodurch ihr rechnerisch eine zweite Aktion
     // "übrig" blieb, obwohl sie zwischenzeitlich hätte sterben können -
@@ -206,7 +208,9 @@ public class MatchControllerTests
         controller.ExecuteTurn(unit, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
 
         Assert.Equal(hpBefore - 4, unit.CurrentHitPoints); // der Tick wirkte bereits, BEVOR überhaupt eine Aktion möglich war
-        Assert.Equal(2, state.GetEffectsOnUnit(unit.Id).Single().RemainingDuration); // Restdauer genau einmal verringert
+        // Die Restdauer zählt beim ANWENDER (other), nicht beim Ziel: der Zug
+        // des Ziels verbraucht sie nicht (Korrektur "Wirkungsdauer hängt am Anwender").
+        Assert.Equal(3, state.GetEffectsOnUnit(unit.Id).Single().RemainingDuration);
     }
 
     [Fact]
@@ -237,11 +241,11 @@ public class MatchControllerTests
     }
 
     [Fact]
-    public void ExecuteTurn_EffektdauerVerringertSichGenauEinmalProEigenemZugDerBetroffenenEinheit()
+    public void ExecuteTurn_EffektdauerVerringertSichGenauEinmalProEigenemZugDesAnwenders()
     {
         var state = NewState();
-        var unit = new TestUnit(Id(1), Team.TeamA, new HexCoordinate(0, 0), speed: 10);
-        var other = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 5), speed: 10);
+        var unit = new TestUnit(Id(1), Team.TeamA, new HexCoordinate(0, 0), speed: 10); // Ziel
+        var other = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 5), speed: 10); // Anwender
         state.AddUnit(unit);
         state.AddUnit(other);
 
@@ -249,13 +253,19 @@ public class MatchControllerTests
         EffectSystem.Apply(state, ActiveEffect.OnUnit(other, unit, dot));
 
         var agent = new ScriptedAgent(); // ungescriptet -> passt sofort in jedem Zug
-        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        var controller = new MatchController(state, agent, agent, seed: 1);
 
+        // Züge des ZIELS verbrauchen die Dauer nicht (nur der Schadens-Tick wirkt).
         controller.ExecuteTurn(unit, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+        controller.ExecuteTurn(unit, agent, new Random(1), null, roundNumber: 2, startingTeam: Team.TeamA);
+        Assert.Equal(2, state.GetEffectsOnUnit(unit.Id).Single().RemainingDuration);
+
+        // Erst die Züge des ANWENDERS zählen die Dauer herunter, genau einmal je Zug.
+        controller.ExecuteTurn(other, agent, new Random(1), null, roundNumber: 3, startingTeam: Team.TeamA);
         Assert.Equal(1, state.GetEffectsOnUnit(unit.Id).Single().RemainingDuration);
 
-        controller.ExecuteTurn(unit, agent, new Random(1), null, roundNumber: 2, startingTeam: Team.TeamA);
-        Assert.Empty(state.GetEffectsOnUnit(unit.Id)); // nach zwei eigenen Zügen (Dauer 2) abgelaufen
+        controller.ExecuteTurn(other, agent, new Random(1), null, roundNumber: 4, startingTeam: Team.TeamA);
+        Assert.Empty(state.GetEffectsOnUnit(unit.Id)); // nach zwei Zügen des Anwenders (Dauer 2) abgelaufen
     }
 
     // -----------------------------------------------------------------
@@ -447,5 +457,205 @@ public class MatchControllerTests
         Assert.Equal(2, result.Replay.InitialSetup.Count);
         Assert.Contains(result.Replay.InitialSetup, s => s.UnitId == attacker.Id && s.StartPosition == new HexCoordinate(0, 0));
         Assert.Contains(result.Replay.Entries, e => e.ActionType == ReplayActionType.Attack && e.ActingUnitId == attacker.Id);
+    }
+
+    // -----------------------------------------------------------------
+    // HELDEN-AKTIONSZÄHLUNG (Bachelorarbeit-Erweiterung, Auswertungsbedarf:
+    // "wie oft bewegt sich ein Held im Schnitt, wie oft greift er an, wie
+    // oft nutzt er seine Fähigkeit" - siehe MatchResult.HeroActionCountsByHeroId
+    // und CsvExporter.ExportHeroWinRates). Über die intern sichtbare
+    // DebugHeroActionCounts-Eigenschaft geprüft, aus demselben Grund wie
+    // ExecuteTurn selbst: ohne sie müsste jeder Test erst eine ganze Partie
+    // bis zu ihrem natürlichen Ende durchspielen, nur um die Zählung nach
+    // EINEM einzelnen Zug zu sehen.
+    // -----------------------------------------------------------------
+
+    [Fact]
+    public void ExecuteTurn_ErfolgreicheBewegungWirdProHeldGezaehlt()
+    {
+        var state = NewState();
+        var hero = new Heroes.Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Schildtraeger);
+        state.AddUnit(hero);
+        var agent = new ScriptedAgent();
+        agent.Script(hero, new TurnAction.Move(new HexCoordinate(0, 1)));
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        controller.ExecuteTurn(hero, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        Assert.Equal(1, controller.DebugHeroActionCounts[DefaultHeroes.Schildtraeger.Id].Moves);
+    }
+
+    [Fact]
+    public void ExecuteTurn_MisslungenerBewegungsversuchZaehltNicht()
+    {
+        var state = NewState();
+        var hero = new Heroes.Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Schildtraeger);
+        state.AddUnit(hero);
+        var agent = new ScriptedAgent();
+        agent.Script(hero, new TurnAction.Move(new HexCoordinate(0, 3))); // außerhalb der Bewegungsreichweite (1)
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        controller.ExecuteTurn(hero, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        // Der Zug selbst zählt (der Held WAR lebend am Zug, siehe Turns),
+        // der misslungene BewegungsVERSUCH aber nicht als Bewegung.
+        var counts = controller.DebugHeroActionCounts[DefaultHeroes.Schildtraeger.Id];
+        Assert.Equal(1, counts.Turns);
+        Assert.Equal(0, counts.Moves);
+    }
+
+    [Fact]
+    public void ExecuteTurn_ErfolgreicherAngriffWirdProHeldGezaehlt()
+    {
+        var state = NewState();
+        var hero = new Heroes.Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Schildtraeger);
+        var enemy = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 1), speed: 10);
+        state.AddUnit(hero);
+        state.AddUnit(enemy);
+        var agent = new ScriptedAgent();
+        agent.Script(hero, new TurnAction.Attack(enemy));
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        controller.ExecuteTurn(hero, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        Assert.Equal(1, controller.DebugHeroActionCounts[DefaultHeroes.Schildtraeger.Id].Attacks);
+    }
+
+    [Fact]
+    public void ExecuteTurn_ErfolgreicherFaehigkeitseinsatzWirdProHeldGezaehlt()
+    {
+        var state = NewState();
+        var hero = new Heroes.Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Schildtraeger);
+        state.AddUnit(hero);
+        var agent = new ScriptedAgent();
+        agent.Script(hero, new TurnAction.UseAbility(new AbilityTarget.FieldTarget(hero.Position)));
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        controller.ExecuteTurn(hero, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        Assert.Equal(1, controller.DebugHeroActionCounts[DefaultHeroes.Schildtraeger.Id].AbilityUses);
+    }
+
+    [Fact]
+    public void ExecuteTurn_BewegungUndAngriffImSelbenZugZaehlenBeideUnabhaengig()
+    {
+        var state = NewState();
+        var hero = new Heroes.Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Schildtraeger);
+        var enemy = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 2), speed: 10); // Distanz 2 - erst nach der Bewegung angreifbar
+        state.AddUnit(hero);
+        state.AddUnit(enemy);
+        var agent = new ScriptedAgent();
+        agent.Script(hero, new TurnAction.Move(new HexCoordinate(0, 1)), new TurnAction.Attack(enemy));
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        controller.ExecuteTurn(hero, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        var counts = controller.DebugHeroActionCounts[DefaultHeroes.Schildtraeger.Id];
+        Assert.Equal(1, counts.Moves);
+        Assert.Equal(1, counts.Attacks);
+    }
+
+    /// <summary>
+    /// Bachelorarbeit-Erweiterung (Problem 3/4 der Auswertungskorrektur):
+    /// ein Zug zählt als "am Zug" (<see cref="HeroActionCounts.Turns"/>),
+    /// AUCH wenn der Agent gar keine Aktion ausführt, sondern sofort passt -
+    /// genau diese Bezugsgröße macht Bewegungen/Angriffe je Zug erst
+    /// sinnvoll vergleichbar (siehe CsvExporter.ExportHeroWinRates).
+    /// </summary>
+    [Fact]
+    public void ExecuteTurn_ZaehltEinenZugAuchOhneJedeAktion()
+    {
+        var state = NewState();
+        var hero = new Heroes.Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Schildtraeger);
+        state.AddUnit(hero);
+        var agent = new ScriptedAgent();
+        agent.Script(hero, TurnAction.EndTurn.Instance);
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        controller.ExecuteTurn(hero, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        var counts = controller.DebugHeroActionCounts[DefaultHeroes.Schildtraeger.Id];
+        Assert.Equal(1, counts.Turns);
+        Assert.Equal(0, counts.Moves);
+        Assert.Equal(0, counts.Attacks);
+        Assert.Equal(0, counts.AbilityUses);
+    }
+
+    /// <summary>
+    /// Bachelorarbeit-Erweiterung (Problem 3.3): eine Fähigkeit mit
+    /// Abklingzeit gilt in dem Zug, in dem sie eingesetzt wird, noch als
+    /// verfügbar (die Abklingzeit beginnt ja erst durch DIESEN Einsatz) -
+    /// im UNMITTELBAR folgenden eigenen Zug (Abklingzeit noch aktiv) dagegen
+    /// nicht mehr, obwohl der Held auch dann ganz normal "am Zug" war.
+    /// </summary>
+    [Fact]
+    public void ExecuteTurn_FaehigkeitAufAbklingzeitZaehltNichtAlsVerfuegbar()
+    {
+        var state = NewState();
+        var hero = new Heroes.Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Schildtraeger); // Schildwall: CooldownRounds 2
+        state.AddUnit(hero);
+        var agent = new ScriptedAgent();
+        agent.Script(hero, new TurnAction.UseAbility(new AbilityTarget.FieldTarget(hero.Position)));
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        controller.ExecuteTurn(hero, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+        controller.ExecuteTurn(hero, agent, new Random(1), null, roundNumber: 2, startingTeam: Team.TeamA); // Abklingzeit läuft noch, Agent passt mangels Skript
+
+        var counts = controller.DebugHeroActionCounts[DefaultHeroes.Schildtraeger.Id];
+        Assert.Equal(2, counts.Turns);
+        Assert.Equal(1, counts.AbilityUses);
+        Assert.Equal(1, counts.AbilityAvailableTurns); // nur der erste Zug, nicht der zweite (Abklingzeit aktiv)
+    }
+
+    /// <summary>
+    /// Bachelorarbeit-Erweiterung: eine PASSIVE Fähigkeit (Berserker) wird
+    /// nie als Zug angeboten - "verfügbar" ist dafür kein sinnvoller
+    /// Begriff, daher bewusst IMMER 0 statt "immer verfügbar" (was
+    /// fälschlich nahelegen würde, der Agent hätte sie aktiv nutzen können).
+    /// </summary>
+    [Fact]
+    public void ExecuteTurn_PassiveFaehigkeitZaehltNieAlsVerfuegbarerZug()
+    {
+        var state = NewState();
+        var berserker = new Heroes.Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Berserker);
+        state.AddUnit(berserker);
+        var agent = new ScriptedAgent();
+        agent.Script(berserker, TurnAction.EndTurn.Instance);
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        controller.ExecuteTurn(berserker, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        var counts = controller.DebugHeroActionCounts[DefaultHeroes.Berserker.Id];
+        Assert.Equal(1, counts.Turns);
+        Assert.Equal(0, counts.AbilityAvailableTurns);
+        Assert.Equal(0, counts.AbilityUses);
+    }
+
+    /// <summary>
+    /// Ein Klon ist kein <see cref="Heroes.Hero"/> (siehe CloneTests) und
+    /// trägt daher NICHT zur Aktionsbilanz seines Erzeugers bei - nur der
+    /// tatsächliche Fähigkeitseinsatz (Trugbild), der den Klon erzeugt hat,
+    /// zählt für den Illusionisten selbst.
+    /// </summary>
+    [Fact]
+    public void ExecuteTurn_KlonBewegungTraegtNichtZurAktionsbilanzDesErzeugersBei()
+    {
+        var state = NewState();
+        var illusionist = new Heroes.Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Illusionist);
+        state.AddUnit(illusionist);
+        var agent = new ScriptedAgent();
+        agent.Script(illusionist, new TurnAction.UseAbility(new AbilityTarget.UnitTarget(illusionist)));
+
+        var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
+        controller.ExecuteTurn(illusionist, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+        var clone = state.Units.Single(u => u.IsClone);
+
+        agent.Script(clone, new TurnAction.Move(new HexCoordinate(0, 1)));
+        controller.ExecuteTurn(clone, agent, new Random(1), null, roundNumber: 1, startingTeam: Team.TeamA);
+
+        var counts = controller.DebugHeroActionCounts[DefaultHeroes.Illusionist.Id];
+        Assert.Equal(1, counts.AbilityUses); // aus dem Trugbild-Einsatz des Illusionisten selbst
+        Assert.Equal(0, counts.Moves);       // die Bewegung des KLONS zählt nicht mit
+        Assert.Equal(1, counts.Turns);       // nur der eigene Zug des Illusionisten, nicht der des Klons
     }
 }

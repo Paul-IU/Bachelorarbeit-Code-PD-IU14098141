@@ -27,7 +27,7 @@ public class SavedMatchIOTests
         var setup = AusgangslagenGenerator.GenerateAllSetups(teamA, teamB, board)[0];
         var state = AusgangslagenGenerator.BuildGameState(setup, board);
 
-        var result = new MatchController(state, new Agents.RandomAgent(), new Agents.RandomAgent(), seed: 2026, recordReplay: true)
+        var result = new MatchController(state, new Agents.RandomAgentByActionType(), new Agents.RandomAgentByActionType(), seed: 2026, recordReplay: true)
             .Run(setup.StartingTeam);
 
         Assert.NotNull(result.Replay);

@@ -69,6 +69,24 @@ public sealed class MatchController
     private readonly IReadOnlyList<UnitSetup> _initialSetup;
 
     /// <summary>
+    /// Siehe <see cref="MatchResult.HeroActionCountsByHeroId"/> - wird
+    /// während der gesamten Partie mitgeführt (siehe <see cref="RecordHeroAction"/>)
+    /// und am Ende unverändert in das Ergebnis übernommen. Bewusst über die
+    /// Helden-ID statt der Unit-Id geführt, siehe dort.
+    /// </summary>
+    private readonly Dictionary<string, HeroActionCounts> _heroActionCounts = new();
+
+    /// <summary>
+    /// Ausschließlich für Tests gedacht (siehe <see cref="ExecuteTurn"/> für
+    /// dieselbe Begründung): erlaubt die Prüfung der Aktionszählung nach
+    /// EINEM einzelnen Zug, ohne dafür erst eine ganze Partie bis zu ihrem
+    /// natürlichen Ende (Auslöschung oder Rundenlimit) durchspielen zu
+    /// müssen, über das <see cref="MatchResult.HeroActionCountsByHeroId"/>
+    /// sonst ausschließlich erreichbar wäre.
+    /// </summary>
+    internal IReadOnlyDictionary<string, HeroActionCounts> DebugHeroActionCounts => _heroActionCounts;
+
+    /// <summary>
     /// Erstellt eine neue Partiesteuerung für eine bereits vollständig
     /// aufgestellte Partie (Spielfeld und alle Einheiten sind bereits über
     /// <paramref name="state"/> platziert - die Erzeugung der Einheiten
@@ -167,11 +185,11 @@ public sealed class MatchController
                 Emit(replayEntries, ReplayEntry.ForRoundStarted(roundNumber));
             }
 
-            // Feld-verankerte Effekte (Feldsperren, Flächen-Schadens-
-            // reduktion) haben keinen eigenen Zug, an dem sie ticken
-            // könnten - ihre Restdauer wird daher hier, einmal zu Beginn
-            // JEDER Runde, verringert (siehe EffectSystem.TickFieldEffects).
-            TickFieldEffectsWithEvents(replayEntries, roundNumber);
+            // Kein Rundenbeginn-Tick für Feld-Effekte mehr: die Dauer JEDES
+            // Effekts (auch eines feld-verankerten wie Schildwall/Mauer)
+            // zählt zu Beginn des nächsten eigenen Zugs seines ANWENDERS
+            // herunter (siehe EffectSystem.TickDurationsOfSource und
+            // ExecuteTurn), nicht mehr pauschal einmal pro Runde.
 
             // Rangfolge wird zu Beginn JEDER Runde neu aus den aktuell
             // lebenden Helden bestimmt (Anforderung 2). Als veränderliche
@@ -181,6 +199,10 @@ public sealed class MatchController
             // Runde an die Reihe zu kommen (Anforderung 9: "handelt in der
             // Zugreihenfolge unmittelbar nach seinem Erzeuger").
             var roundOrder = new List<Unit>(TurnOrder.ComputeRoundOrder(_state.Units, startingTeam, _state));
+
+            // Für Agenten ablesbar machen, wer nach dem aktuellen Zug handelt
+            // (siehe GameState.CurrentRoundOrder) - rein informativ.
+            _state.SetRoundOrder(roundOrder.Select(u => u.Id).ToArray(), startingTeam);
 
             // Nach außen melden, WELCHE Reihenfolge soeben bestimmt wurde
             // (siehe ReplayActionType.RoundOrderDetermined) - eine
@@ -223,6 +245,7 @@ public sealed class MatchController
                     // Runde, unabhängig von der zu Rundenbeginn berechneten
                     // Rangfolge (Anforderung 9).
                     roundOrder.Insert(i + 1, cloneAfterTurn);
+                    _state.SetRoundOrder(roundOrder.Select(u => u.Id).ToArray(), startingTeam);
 
                     if (ShouldEmit(replayEntries))
                     {
@@ -238,24 +261,22 @@ public sealed class MatchController
         }
     }
 
-    private void TickFieldEffectsWithEvents(List<ReplayEntry>? replayEntries, int roundNumber)
+    /// <summary>
+    /// Verbucht eine ERFOLGREICHE Aktion (siehe <see cref="HeroActionCounts"/>)
+    /// unter der Helden-ID der ausführenden Einheit. Ein Klon ist kein
+    /// <see cref="Hero"/> und trägt daher bewusst NICHT zur Bilanz seines
+    /// Erzeugers bei (er handelt zwar räumlich, aber nicht "als der Held").
+    /// </summary>
+    private void RecordHeroAction(Unit unit, int moves = 0, int attacks = 0, int abilityUses = 0, int turns = 0, int abilityAvailableTurns = 0)
     {
-        // EffectSystem selbst erzeugt weiterhin nur dann ReplayEntry-Objekte
-        // (auch für den "EffectTicked"-Zwischenschritt), wenn tatsächlich
-        // protokolliert werden soll - hier genügt daher dieselbe Weiche wie
-        // überall sonst, es wird keine eigene Zuteilung vorgenommen.
-        if (!ShouldEmit(replayEntries))
+        if (unit is not Hero hero)
         {
-            EffectSystem.TickFieldEffects(_state);
             return;
         }
 
-        var sink = new List<ReplayEntry>();
-        EffectSystem.TickFieldEffects(_state, sink, roundNumber);
-        foreach (var entry in sink)
-        {
-            Emit(replayEntries, entry);
-        }
+        string heroId = hero.Definition.Id;
+        _heroActionCounts.TryGetValue(heroId, out var existing);
+        _heroActionCounts[heroId] = existing + new HeroActionCounts(moves, attacks, abilityUses, turns, abilityAvailableTurns);
     }
 
     private Unit? FindLivingCloneOf(Guid creatorId) =>
@@ -336,11 +357,17 @@ public sealed class MatchController
     /// Runden laufen würde) direkt prüfen können.
     ///
     /// BACHELORARBEIT-BEGRÜNDUNG DES EFFEKT-ZEITPUNKTS (Punkt D der
-    /// Korrektur-Anforderungen): der Tick eines dauerhaften Effekts
-    /// (Schaden über Zeit wie "Verbrennung", aber auch das Ablaufen JEDER
-    /// Effektdauer sowie das Verringern einer laufenden Fähigkeits-
-    /// Abklingzeit) erfolgt GENAU EINMAL, GANZ ZU BEGINN des Zugs der
-    /// betroffenen Einheit - siehe die Aufrufe von
+    /// Korrektur-Anforderungen, ergänzt um die Korrektur "Wirkungsdauer
+    /// hängt am Anwender"): zu Beginn des Zugs einer Einheit passieren
+    /// GENAU EINMAL zwei Dinge an Effekten - der Schaden über Zeit ("Verbrennung")
+    /// der Effekte, die AUF dieser Einheit liegen (sie ist das ZIEL), und das
+    /// Herunterzählen bzw. Ablaufen der Dauer der Effekte, die DIESE Einheit
+    /// selbst gewirkt hat (sie ist der ANWENDER) - siehe
+    /// <see cref="Effects.EffectSystem"/>. Ein Effekt mit Dauer 1 wirkt
+    /// dadurch immer genau eine volle Runde, unabhängig vom Rang des
+    /// Anwenders in der Zugreihenfolge. Dasselbe gilt für das Verringern
+    /// einer laufenden Fähigkeits-Abklingzeit (weiterhin an den Zügen des
+    /// Anwenders, von dieser Korrektur nicht berührt) - siehe die Aufrufe von
     /// <see cref="Effects.EffectSystem.TickUnitEffects"/> und
     /// <see cref="Heroes.Hero.TickAbilityCooldown"/> unten, beide VOR der
     /// While-Schleife, die den Agenten nach Teilaktionen fragt. Das gilt
@@ -388,6 +415,20 @@ public sealed class MatchController
         // GameState.CurrentRoundNumber unabhängig vom Aufrufer konsistent
         // bleibt (Anforderung 18: "aktuelle Runde muss auslesbar sein").
         _state.SetCurrentRound(roundNumber);
+        _state.SetStartingTeam(startingTeam);
+
+        // "War lebend am Zug" (siehe HeroActionCounts.Turns): ExecuteTurn
+        // wird im normalen Spielablauf (Run()) ausschließlich für zu diesem
+        // Zeitpunkt lebende Einheiten aufgerufen (siehe die IsDefeated-Prüfung
+        // dort, VOR diesem Aufruf) - hier trotzdem defensiv erneut geprüft,
+        // da ExecuteTurn auch direkt (unter Umgehung von Run()) aufgerufen
+        // werden kann. Zählt UNABHÄNGIG davon, ob die Einheit im Verlauf
+        // dieses Zugs (z.B. durch einen eigenen Effekt-Tick) noch besiegt
+        // wird - sie WAR zu Zugbeginn ja lebend.
+        if (!unit.IsDefeated)
+        {
+            RecordHeroAction(unit, turns: 1);
+        }
 
         if (ShouldEmit(replayEntries))
         {
@@ -396,12 +437,13 @@ public sealed class MatchController
 
         _state.SetCurrentActor(unit.Id, new TurnBudget(CanMove: true, CanAct: true));
 
-        // Zu Beginn des Zugs: erst eigene Effekte ticken (z.B. Schaden über
-        // Zeit), dann eine evtl. laufende Fähigkeits-Abklingzeit verringern
+        // Zu Beginn des Zugs: erst Effekt-Ticks (Schaden über Zeit auf dieser
+        // Einheit als Ziel, dann Dauer ihrer eigenen Effekte als Anwender),
+        // dann eine evtl. laufende Fähigkeits-Abklingzeit verringern
         // (derselbe Zeitpunkt wie Effekt-Ticks, siehe EffectSystem).
         //
-        // Ein Tick kann NUR die tickende Einheit selbst treffen (siehe
-        // EffectSystem.TickUnitEffects) - kann er sie also besiegen, wird
+        // Ein Schadens-Tick kann NUR die tickende Einheit selbst treffen (siehe
+        // EffectSystem.TickDamageOverTime) - kann er sie also besiegen, wird
         // ausschließlich IHR EIGENES Team auf Auslöschung geprüft (nicht
         // pauschal beide Teams: in einem Testaufbau ohne jede Einheit des
         // gegnerischen Teams wäre "gegnerisches Team eliminiert" sonst
@@ -424,6 +466,17 @@ public sealed class MatchController
         if (unit is Hero heroForCooldown)
         {
             heroForCooldown.TickAbilityCooldown();
+
+            // Verfügbarkeit DIESES Zugs festhalten (siehe HeroActionCounts.AbilityAvailableTurns) -
+            // erst NACH dem Tick, damit eine soeben abgelaufene Abklingzeit
+            // bereits als "verfügbar" zählt. Eine PASSIVE Fähigkeit wird nie
+            // als Zug angeboten (siehe AbilityDefinition.IsPassive) und
+            // bleibt hier daher bewusst unberücksichtigt - "immer verfügbar"
+            // wäre für eine ohnehin nie aktiv wählbare Fähigkeit irreführend.
+            if (!heroForCooldown.Definition.Ability.IsPassive && heroForCooldown.AbilityCooldownRemaining is null)
+            {
+                RecordHeroAction(heroForCooldown, abilityAvailableTurns: 1);
+            }
         }
 
         if (unit.IsDefeated)
@@ -470,9 +523,13 @@ public sealed class MatchController
                     // wohlverhaltener Agent, der Ziele stets aus
                     // unit.GetLegalMoves(...) wählt, erlebt das ohnehin nie.
                     bool moved = unit.TryMove(move.Target, _state);
-                    if (moved && ShouldEmit(replayEntries))
+                    if (moved)
                     {
-                        Emit(replayEntries, ReplayEntry.ForMove(roundNumber, unit, sourcePosition, move.Target, path));
+                        RecordHeroAction(unit, moves: 1);
+                        if (ShouldEmit(replayEntries))
+                        {
+                            Emit(replayEntries, ReplayEntry.ForMove(roundNumber, unit, sourcePosition, move.Target, path));
+                        }
                     }
                     hasMoved = true;
                     break;
@@ -490,6 +547,7 @@ public sealed class MatchController
                     bool attacked = CombatSystem.TryAttackDetailed(unit, attack.Target, _state, out var actualAttackTarget, out var damageDealt);
                     if (attacked)
                     {
+                        RecordHeroAction(unit, attacks: 1);
                         if (attackWantsLogging)
                         {
                             Emit(replayEntries, ReplayEntry.ForAttack(roundNumber, unit, actualAttackTarget, damageDealt));
@@ -504,6 +562,13 @@ public sealed class MatchController
                             EndTurn(unit, replayEntries, roundNumber);
                             return BuildResult(MatchEndReason.Elimination, roundNumber, startingTeam, replayEntries);
                         }
+
+                        if (unit.IsDefeated)
+                        {
+                            // Im eigenen Zug besiegt (Vergeltung einer Umleitung) - Zug endet sofort.
+                            EndTurn(unit, replayEntries, roundNumber);
+                            return null;
+                        }
                     }
                     hasActed = true;
                     break;
@@ -514,6 +579,11 @@ public sealed class MatchController
                         bool abilityWantsLogging = ShouldEmit(replayEntries);
                         var unitsBeforeAbility = abilityWantsLogging ? SnapshotUnits() : null;
                         bool used = AbilitySystem.TryUseAbility(hero, useAbility.Target, _state, useAbility.Mode, replayEntries, roundNumber);
+                        if (used)
+                        {
+                            RecordHeroAction(hero, abilityUses: 1);
+                        }
+
                         if (used && abilityWantsLogging)
                         {
                             Emit(replayEntries, ReplayEntry.ForAbility(roundNumber, hero, useAbility.Target, useAbility.Mode, hero.Definition.Ability.Id));
@@ -524,6 +594,13 @@ public sealed class MatchController
                         {
                             EndTurn(unit, replayEntries, roundNumber);
                             return BuildResult(MatchEndReason.Elimination, roundNumber, startingTeam, replayEntries);
+                        }
+
+                        if (used && unit.IsDefeated)
+                        {
+                            // Im eigenen Zug besiegt (Vergeltung auf Fähigkeitsschaden) - Zug endet sofort.
+                            EndTurn(unit, replayEntries, roundNumber);
+                            return null;
                         }
                     }
                     hasActed = true;
@@ -592,7 +669,9 @@ public sealed class MatchController
             _seed,
             _initialSetup,
             startingTeam,
-            replay);
+            replay,
+            _heroActionCounts,
+            _state.CombatStatistics.ToDictionary(kv => kv.Key, kv => kv.Value));
     }
 
     /// <summary>
@@ -628,18 +707,30 @@ public sealed class MatchController
     /// Bachelorarbeit begründet - daher hier als eigene, klar benannte
     /// Methode statt inline verstreuter Vergleichslogik.
     /// </summary>
-    private static MatchWinner ResolveRoundLimitWinner(TeamResult teamA, TeamResult teamB)
+    private static MatchWinner ResolveRoundLimitWinner(TeamResult teamA, TeamResult teamB) =>
+        DetermineRoundLimitResolution(teamA, teamB) switch
+        {
+            RoundLimitResolution.SurvivingHeroes =>
+                teamA.SurvivingUnitCount > teamB.SurvivingUnitCount ? MatchWinner.TeamA : MatchWinner.TeamB,
+            RoundLimitResolution.HitPointFraction =>
+                teamA.RemainingHitPointsFraction > teamB.RemainingHitPointsFraction ? MatchWinner.TeamA : MatchWinner.TeamB,
+            _ => MatchWinner.Draw,
+        };
+
+    /// <summary>
+    /// Welche Stufe der Kaskade (siehe <see cref="ResolveRoundLimitWinner"/>)
+    /// die Partie beim Rundenlimit entscheidet - öffentlich, damit eine
+    /// Oberfläche den Grund anzeigen kann, ohne die Regel nachzubauen.
+    /// </summary>
+    public static RoundLimitResolution DetermineRoundLimitResolution(TeamResult teamA, TeamResult teamB)
     {
         if (teamA.SurvivingUnitCount != teamB.SurvivingUnitCount)
         {
-            return teamA.SurvivingUnitCount > teamB.SurvivingUnitCount ? MatchWinner.TeamA : MatchWinner.TeamB;
+            return RoundLimitResolution.SurvivingHeroes;
         }
 
-        if (teamA.RemainingHitPointsFraction != teamB.RemainingHitPointsFraction)
-        {
-            return teamA.RemainingHitPointsFraction > teamB.RemainingHitPointsFraction ? MatchWinner.TeamA : MatchWinner.TeamB;
-        }
-
-        return MatchWinner.Draw;
+        return teamA.RemainingHitPointsFraction != teamB.RemainingHitPointsFraction
+            ? RoundLimitResolution.HitPointFraction
+            : RoundLimitResolution.Draw;
     }
 }

@@ -33,6 +33,7 @@ public sealed class GameState
     private readonly List<Unit> _units = new();
     private readonly Dictionary<HexCoordinate, List<Unit>> _unitsByCoordinate = new();
     private readonly List<ActiveEffect> _activeEffects = new();
+    private readonly Dictionary<Guid, Match.UnitCombatStatistics> _combatStatistics = new();
 
     public GameState(Board.Board board)
     {
@@ -43,6 +44,46 @@ public sealed class GameState
 
     /// <summary>Alle aktuell aktiven (nicht besiegten) Einheiten der Partie (schreibgeschützte Sicht).</summary>
     public IReadOnlyList<Unit> Units => _units;
+
+    /// <summary>
+    /// Kampfbilanz je Einheit (Id) seit Partiebeginn - reine Buchführung für
+    /// die Anzeige, siehe <see cref="Match.UnitCombatStatistics"/>. Wird von
+    /// <see cref="Combat.CombatSystem"/> bei jedem Schaden fortgeschrieben und
+    /// von keiner Regel und keinem Agenten gelesen. Eine Simulationskopie
+    /// (<see cref="CloneForSimulation"/>) beginnt bewusst leer.
+    /// </summary>
+    public IReadOnlyDictionary<Guid, Match.UnitCombatStatistics> CombatStatistics => _combatStatistics;
+
+    /// <summary>
+    /// Verbucht <paramref name="hitPointsLost"/> tatsächlich verlorene
+    /// Lebenspunkte von <paramref name="target"/>; <paramref name="source"/> =
+    /// Verursacher (bei einem Klon wird dem Erzeuger gutgeschrieben).
+    /// </summary>
+    internal void RecordDamage(Unit? source, Unit target, int hitPointsLost)
+    {
+        if (hitPointsLost <= 0)
+        {
+            return;
+        }
+
+        if (!target.IsClone)
+        {
+            var taken = _combatStatistics.GetValueOrDefault(target.Id, Match.UnitCombatStatistics.Empty);
+            _combatStatistics[target.Id] = taken with { DamageTaken = taken.DamageTaken + hitPointsLost };
+        }
+
+        if (source is not null)
+        {
+            Guid creditedId = source.CreatorId ?? source.Id;
+            var dealt = _combatStatistics.GetValueOrDefault(creditedId, Match.UnitCombatStatistics.Empty);
+            bool heroDefeated = target.IsDefeated && !target.IsClone && target.Team != source.Team;
+            _combatStatistics[creditedId] = dealt with
+            {
+                DamageDealt = dealt.DamageDealt + hitPointsLost,
+                Defeats = dealt.Defeats + (heroDefeated ? 1 : 0),
+            };
+        }
+    }
 
     /// <summary>
     /// Platziert eine neue Einheit auf dem Spielfeld. Die Position muss
@@ -77,6 +118,44 @@ public sealed class GameState
         _units.Add(unit);
         AddToIndex(unit.Position, unit);
         return true;
+    }
+
+    /// <summary>
+    /// Tiefe, vollständig unabhängige Kopie des Spielzustands für
+    /// Probezüge (heuristische und vorausschauende Agenten): Einheiten,
+    /// Belegung und Effekte werden kopiert, Änderungen an der Kopie wirken
+    /// nie auf das Original zurück. Die Reihenfolgen aller Listen
+    /// (Einheiten, Einheiten je Feld, Effekte) bleiben exakt erhalten - die
+    /// Simulation auf der Kopie verläuft damit identisch zu einem Zug auf
+    /// dem Original. Das Spielfeld ist unveränderlich und wird geteilt.
+    /// </summary>
+    public GameState CloneForSimulation()
+    {
+        var copy = new GameState(Board);
+        var copies = new Dictionary<Unit, Unit>(_units.Count);
+        foreach (var unit in _units)
+        {
+            var unitCopy = unit.CopyForSimulation();
+            copies[unit] = unitCopy;
+            copy._units.Add(unitCopy);
+        }
+
+        foreach (var (coordinate, units) in _unitsByCoordinate)
+        {
+            copy._unitsByCoordinate[coordinate] = units.Select(u => copies[u]).ToList();
+        }
+
+        foreach (var effect in _activeEffects)
+        {
+            copy._activeEffects.Add(effect.CopyForSimulation());
+        }
+
+        copy.CurrentRoundNumber = CurrentRoundNumber;
+        copy.CurrentActingUnitId = CurrentActingUnitId;
+        copy.CurrentTurnBudget = CurrentTurnBudget;
+        copy.CurrentRoundOrder = CurrentRoundOrder; // unveränderliche Liste, Teilen ist unbedenklich
+        copy.StartingTeam = StartingTeam;
+        return copy;
     }
 
     /// <summary>Prüft, ob auf <paramref name="coordinate"/> aktuell mindestens eine Einheit steht.</summary>
@@ -121,6 +200,18 @@ public sealed class GameState
         RemoveFromIndex(unit.Position, unit);
         unit.SetPosition(target);
         AddToIndex(target, unit);
+
+        // Feld-Effekte, deren Feld dem Anwender folgt (siehe
+        // EffectTemplate.FieldFollowsSource, z.B. Mauer der Wand), wandern auf
+        // das neue Feld - vor dem Mitziehen anderer Einheiten, damit die
+        // Wirkung beim Eintreffen eines mitgezogenen Huggers schon dort liegt.
+        foreach (var effect in _activeEffects)
+        {
+            if (effect.FieldFollowsSource && effect.AnchorType == EffectAnchorType.Field && effect.SourceUnitId == unit.Id)
+            {
+                effect.SetTargetField(target);
+            }
+        }
 
         foreach (var effect in _activeEffects.Where(e => e.CausesSourceToFollowTarget && e.TargetUnitId == unit.Id).ToList())
         {
@@ -219,8 +310,37 @@ public sealed class GameState
     /// <summary>Das noch verbleibende Aktionsbudget der aktuell handelnden Einheit (siehe <see cref="CurrentActingUnitId"/>).</summary>
     public TurnBudget CurrentTurnBudget { get; private set; }
 
+    /// <summary>
+    /// Zugreihenfolge der laufenden Runde als Einheiten-Ids, einschließlich
+    /// während der Runde eingefügter Klone (leer, solange keine Runde läuft oder
+    /// ein Zug direkt über MatchController.ExecuteTurn ausgeführt wird).
+    /// Bachelorarbeit-Erweiterung für den <see cref="Agents.LookaheadHeuristicAgent"/>:
+    /// er muss wissen, welche Einheit nach dem aktuellen Zug handelt. Rein
+    /// informativ - der MatchController liest diesen Wert nicht, die Rundenlogik
+    /// bleibt dort.
+    /// </summary>
+    public IReadOnlyList<Guid> CurrentRoundOrder { get; private set; } = Array.Empty<Guid>();
+
+    /// <summary>
+    /// Das Team, das in dieser Partie jede Runde eröffnet (null vor Partiebeginn).
+    /// Wie <see cref="CurrentRoundOrder"/> rein informativ; nötig, um die
+    /// Reihenfolge der NÄCHSTEN Runde mit <see cref="Match.TurnOrder.ComputeRoundOrder"/>
+    /// vorauszuberechnen.
+    /// </summary>
+    public Team? StartingTeam { get; private set; }
+
     /// <summary>Ausschließlich für <see cref="Match.MatchController"/> gedacht.</summary>
     internal void SetCurrentRound(int roundNumber) => CurrentRoundNumber = roundNumber;
+
+    /// <summary>Ausschließlich für <see cref="Match.MatchController"/> gedacht.</summary>
+    internal void SetRoundOrder(IReadOnlyList<Guid> order, Team startingTeam)
+    {
+        CurrentRoundOrder = order;
+        StartingTeam = startingTeam;
+    }
+
+    /// <summary>Ausschließlich für <see cref="Match.MatchController"/> gedacht.</summary>
+    internal void SetStartingTeam(Team startingTeam) => StartingTeam = startingTeam;
 
     /// <summary>Ausschließlich für <see cref="Match.MatchController"/> gedacht.</summary>
     internal void SetCurrentActor(Guid? unitId, TurnBudget budget)

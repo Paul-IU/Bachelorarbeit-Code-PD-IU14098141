@@ -1,0 +1,41 @@
+Vorher: mauer_abschwaechen  Nachher: umklammerung_prozentual  Kontrolle: Paarungen ohne 'hugger'
+
+=== Agent: byactiontype ===
+Kontrolle: Paarungen ohne hugger 1596, davon abweichend 0; Paarungen mit hugger veraendert: 1974 von 1974
+Partiedauer gesamt: 31,760 -> 31,392 Runden; Rundenlimit 2,68 % -> 2,38 %
+Partiedauer mit hugger: 33,695 -> 33,028 Runden; Rundenlimit 2,28 % -> 1,75 %
+
+Held              vorher  nachher    Δ pp  Seed-Rauschen
+elementarmagier    59,44    60,16    0,72          -0,14
+elfe               57,90    58,47    0,57          -0,13
+illusionist        56,40    57,48    1,08          -0,11
+berserker          54,83    55,54    0,71           0,14
+wand               51,11    52,70    1,59           0,32
+bogenschuetze      45,87    46,91    1,04           0,20
+schildtraeger      45,43    47,01    1,58          -0,02
+hugger             39,85    31,28   -8,57           0,01
+musiker            39,17    40,45    1,28          -0,26
+RMS ueber 9 Helden: Aenderung 3,05 pp, Seed-Rauschen 0,18 pp
+Rangfolge nachher: elementarmagier 60,16, elfe 58,47, illusionist 57,48, berserker 55,54, wand 52,70, schildtraeger 47,01, bogenschuetze 46,91, musiker 40,45, hugger 31,28
+Tank-Rangfolge vorher: illusionist 56,40 > wand 51,11 > schildtraeger 45,43
+Tank-Rangfolge nachher: illusionist 57,48 > wand 52,70 > schildtraeger 47,01
+
+=== Agent: uniform ===
+Kontrolle: Paarungen ohne hugger 1596, davon abweichend 0; Paarungen mit hugger veraendert: 1974 von 1974
+Partiedauer gesamt: 36,821 -> 36,405 Runden; Rundenlimit 4,36 % -> 3,93 %
+Partiedauer mit hugger: 39,852 -> 39,100 Runden; Rundenlimit 4,27 % -> 3,48 %
+
+Held              vorher  nachher    Δ pp  Seed-Rauschen
+elfe               59,94    60,30    0,36           0,13
+elementarmagier    58,31    59,05    0,74          -0,15
+wand               53,12    54,78    1,66          -0,15
+berserker          52,65    53,48    0,83          -0,16
+illusionist        52,51    53,79    1,28           0,21
+bogenschuetze      51,08    52,04    0,96          -0,05
+schildtraeger      49,64    51,10    1,46           0,08
+hugger             38,05    29,23   -8,82          -0,10
+musiker            34,69    36,23    1,54           0,19
+RMS ueber 9 Helden: Aenderung 3,14 pp, Seed-Rauschen 0,14 pp
+Rangfolge nachher: elfe 60,30, elementarmagier 59,05, wand 54,78, illusionist 53,79, berserker 53,48, bogenschuetze 52,04, schildtraeger 51,10, musiker 36,23, hugger 29,23
+Tank-Rangfolge vorher: wand 53,12 > illusionist 52,51 > schildtraeger 49,64
+Tank-Rangfolge nachher: wand 54,78 > illusionist 53,79 > schildtraeger 51,10

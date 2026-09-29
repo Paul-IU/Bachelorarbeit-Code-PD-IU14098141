@@ -36,16 +36,18 @@ public class EffectSystemTests
         Assert.True(AbilitySystem.TryUseAbility(tank, new AbilityTarget.FieldTarget(tank.Position), state));
 
         int hpBeforeReducedHit = tank.CurrentHitPoints;
-        attacker.TryAttack(tank, state); // 10 Grundschaden, mit 50% Reduktion nur 5
-        Assert.Equal(hpBeforeReducedHit - 5, tank.CurrentHitPoints);
+        attacker.TryAttack(tank, state); // 100 Grundschaden, mit 50% Reduktion nur 50 (Bachelorarbeit-Korrektur: ×10 skaliert, war 10/5)
+        Assert.Equal(hpBeforeReducedHit - 50, tank.CurrentHitPoints);
 
-        // Dauer 1 - läuft mit dem nächsten Feld-Tick (Rundenbeginn) ab.
-        EffectSystem.TickFieldEffects(state);
+        // Dauer 1 - läuft zu Beginn des nächsten eigenen Zugs des ANWENDERS
+        // (Schildträger) ab, nicht mehr zu einem Rundenbeginn-Tick (Korrektur
+        // "Wirkungsdauer hängt am Anwender", siehe EffectSystem).
+        EffectSystem.TickUnitEffects(state, tank);
         Assert.Empty(state.GetEffectsOnField(tank.Position));
 
         int hpBeforeFullHit = tank.CurrentHitPoints;
         attacker.TryAttack(tank, state); // keine Reduktion mehr - voller Schaden
-        Assert.Equal(hpBeforeFullHit - 10, tank.CurrentHitPoints);
+        Assert.Equal(hpBeforeFullHit - 100, tank.CurrentHitPoints);
     }
 
     [Fact]
@@ -64,7 +66,7 @@ public class EffectSystemTests
         int allyHpBefore = ally.CurrentHitPoints;
         attacker.TryAttack(ally, state);
 
-        Assert.Equal(allyHpBefore - 5, ally.CurrentHitPoints); // ebenfalls 50% Reduktion, obwohl nicht selbst Anwender
+        Assert.Equal(allyHpBefore - 50, ally.CurrentHitPoints); // ebenfalls 50% Reduktion, obwohl nicht selbst Anwender (Bachelorarbeit-Korrektur: ×10 skaliert, war 5)
     }
 
     // -----------------------------------------------------------------
@@ -120,6 +122,7 @@ public class EffectSystemTests
         var template = new EffectTemplate(Name: "Gift", IsInstant: false, Duration: 3, DamagePerTick: 4);
         EffectSystem.Apply(state, ActiveEffect.OnUnit(source, target, template));
 
+        // SCHADENS-Tick: beim Zugbeginn des ZIELS, ohne die Restdauer zu berühren.
         int hpBefore = target.CurrentHitPoints;
         EffectSystem.TickUnitEffects(state, target);
         Assert.Equal(hpBefore - 4, target.CurrentHitPoints); // genau ein Tick
@@ -128,7 +131,13 @@ public class EffectSystemTests
         Assert.Equal(hpBefore - 8, target.CurrentHitPoints); // zweiter, unabhängiger Aufruf
 
         var effect = Assert.Single(state.GetEffectsOnUnit(target.Id));
-        Assert.Equal(1, effect.RemainingDuration); // Dauer 3, zweimal getickt -> noch 1 übrig
+        Assert.Equal(3, effect.RemainingDuration); // Zugbeginn des Ziels verändert die Dauer NICHT
+
+        // DAUER-Tick: beim Zugbeginn des ANWENDERS, ohne weiteren Schaden.
+        EffectSystem.TickUnitEffects(state, source);
+        EffectSystem.TickUnitEffects(state, source);
+        Assert.Equal(1, effect.RemainingDuration); // Dauer 3, zweimal beim Anwender getickt -> noch 1 übrig
+        Assert.Equal(hpBefore - 8, target.CurrentHitPoints); // der Anwender-Tick verursacht keinen Schaden
     }
 
     [Fact]
@@ -165,7 +174,7 @@ public class EffectSystemTests
         var template = new EffectTemplate(Name: "Schwächung", IsInstant: false, Duration: 3, StatModifiers: new StatModifierSet(BaseAttackDamageDelta: -2), Stacking: StackingRule.RefreshDuration);
 
         EffectSystem.Apply(state, ActiveEffect.OnUnit(source, target, template));
-        EffectSystem.TickUnitEffects(state, target); // Restdauer auf 2
+        EffectSystem.TickUnitEffects(state, source); // Restdauer auf 2 (Dauer zählt beim Anwender)
         EffectSystem.Apply(state, ActiveEffect.OnUnit(source, target, template)); // erneut angewendet
 
         var effect = Assert.Single(state.GetEffectsOnUnit(target.Id));

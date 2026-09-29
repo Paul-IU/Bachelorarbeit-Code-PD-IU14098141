@@ -181,10 +181,13 @@ public class GameEventTests
         var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
         controller.ExecuteTurn(wand, agent, new Random(1), null, roundNumber: 5, startingTeam: Team.TeamA);
 
-        // Alle Einheiten mit Position/HP/Effekten sind über GameState.Units
-        // bzw. GetEffectsOnUnit direkt lesbar - hier speziell die durch die
-        // Wand-Fähigkeit gesetzte Bewegungsunfähigkeit.
-        Assert.NotEmpty(state.GetEffectsOnUnit(wand.Id));
+        // Alle Feld-verankerten Effekte sind über GetEffectsOnField direkt
+        // lesbar - hier die durch die Wand-Fähigkeit gesetzte
+        // Feldsperre/Umleitung (seit dem Fähigkeits-Rework die einzige von
+        // Mauer erzeugte Effekt-Instanz, siehe DefaultHeroes.Wand - die
+        // vormalige zusätzliche unit-verankerte Bewegungsunfähigkeit ist
+        // entfallen).
+        Assert.NotEmpty(state.GetEffectsOnField(wand.Position));
 
         // Alle gesperrten Felder sind auslesbar.
         Assert.Contains(state.GetLockedFields(), f => f.Field == wand.Position && f.LockedAgainst == Team.TeamB);

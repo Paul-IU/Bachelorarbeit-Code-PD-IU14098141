@@ -58,6 +58,17 @@ public class HeroCatalogTests
 
             Assert.True(hero.MaxHitPoints >= minHp && hero.MaxHitPoints <= maxHp,
                 $"{hero.DisplayName} ({hero.Role}): HP {hero.MaxHitPoints} liegt außerhalb des Korridors {minHp}-{maxHp}.");
+            // BEWUSSTE AUSNAHME (Designentscheidung "Hugger-Überarbeitung"): der Hugger hat
+            // Grundschaden 60, unter dem Support-Korridor 80-100. Grund: er greift jetzt auch
+            // angeheftet an (halber Schaden) und wird dabei angreifbar - der niedrige
+            // Grundschaden gleicht den Gewinn aus, Fähigkeit und Angriff zu verbinden.
+            // Nur hier ausgenommen, nicht durch Aufweichen des Korridors.
+            if (hero.Id == DefaultHeroes.Hugger.Id)
+            {
+                Assert.Equal(DefaultHeroes.HuggerGrundschaden, hero.BaseAttackDamage);
+                continue;
+            }
+
             Assert.True(hero.BaseAttackDamage >= minDamage && hero.BaseAttackDamage <= maxDamage,
                 $"{hero.DisplayName} ({hero.Role}): Schaden {hero.BaseAttackDamage} liegt außerhalb des Korridors {minDamage}-{maxDamage}.");
         }

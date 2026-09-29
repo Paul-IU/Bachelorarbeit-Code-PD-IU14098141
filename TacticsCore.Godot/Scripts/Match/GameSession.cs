@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using TacticsCore;
 using TacticsCore.Agents;
@@ -33,6 +34,8 @@ public sealed class GameSession
     private readonly int _seed;
     private readonly Team? _startingTeamOverride;
     private readonly Action<Action> _runOnMainThread;
+    private readonly TurnPacer? _pacer;
+    private readonly IReadOnlySet<Team> _pacedTeams;
 
     /// <summary>
     /// Wird für JEDES von der Partie gemeldete Ereignis genau einmal auf dem
@@ -46,7 +49,10 @@ public sealed class GameSession
     /// <summary>Wird EINMAL auf dem Hauptthread ausgelöst, sobald die Partie beendet ist.</summary>
     public event Action<MatchResult>? MatchFinished;
 
-    public GameSession(GameState state, IAgent teamAAgent, IAgent teamBAgent, int seed, Action<Action> runOnMainThread, Team? startingTeamOverride = null)
+    /// <param name="pacer">Optionaler Taktgeber (siehe <see cref="TurnPacer"/>); wartet nach jedem Zug einer Einheit aus <paramref name="pacedTeams"/>.</param>
+    /// <param name="pacedTeams">Von Agenten gesteuerte Teams - nur nach deren Zügen wird gewartet (ein Mensch bestimmt sein Tempo selbst).</param>
+    public GameSession(GameState state, IAgent teamAAgent, IAgent teamBAgent, int seed, Action<Action> runOnMainThread, Team? startingTeamOverride = null,
+        TurnPacer? pacer = null, IReadOnlySet<Team>? pacedTeams = null)
     {
         _state = state;
         _teamAAgent = teamAAgent;
@@ -54,6 +60,8 @@ public sealed class GameSession
         _seed = seed;
         _startingTeamOverride = startingTeamOverride;
         _runOnMainThread = runOnMainThread;
+        _pacer = pacer;
+        _pacedTeams = pacedTeams ?? new HashSet<Team>();
     }
 
     /// <summary>Startet die Partie auf einem eigenen Hintergrundthread und kehrt sofort zurück.</summary>
@@ -96,5 +104,12 @@ public sealed class GameSession
     {
         var snapshot = BoardRenderModel.FromGameState(_state);
         _runOnMainThread(() => EventOccurred?.Invoke(entry, snapshot));
+
+        // Warten NACH dem Melden des Zugendes, noch auf dem Hintergrundthread:
+        // der MatchController rechnet erst danach weiter. Ändert nur das Tempo.
+        if (_pacer is not null && entry.ActionType == ReplayActionType.TurnEnded && _pacedTeams.Contains(entry.ActingTeam))
+        {
+            _pacer.WaitAfterAgentTurn();
+        }
     }
 }

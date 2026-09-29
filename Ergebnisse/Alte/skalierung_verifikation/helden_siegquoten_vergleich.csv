@@ -1,0 +1,10 @@
+﻿Held;Rolle;Siegquote_byActionType_vorher;Siegquote_byActionType_nachher;Differenz_byActionType_pp;Siegquote_Uniform_vorher;Siegquote_Uniform_nachher;Differenz_Uniform_pp
+elementarmagier;Dmg;62,69;62,70;+0,01;61,69;61,69;+0,00
+elfe;Support;60,18;60,21;+0,03;62,23;62,25;+0,02
+berserker;Dmg;58,54;58,53;-0,01;56,31;56,28;-0,03
+illusionist;Tank;58,14;58,10;-0,04;53,91;53,91;+0,00
+bogenschuetze;Dmg;49,47;49,46;-0,01;55,18;55,17;-0,01
+schildtraeger;Tank;45,59;45,51;-0,08;47,49;47,44;-0,05
+hugger;Support;40,98;40,97;-0,01;39,33;39,35;+0,02
+wand;Tank;37,86;37,93;+0,07;42,20;42,25;+0,05
+musiker;Support;36,55;36,59;+0,04;31,66;31,66;+0,00

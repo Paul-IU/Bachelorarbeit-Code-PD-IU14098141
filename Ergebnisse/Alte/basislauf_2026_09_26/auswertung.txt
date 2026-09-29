@@ -1,0 +1,53 @@
+
+=== byactiontype ===
+Partiedauer 26,92 Runden, Rundenlimit 10,67 %
+je Heldenzug: Bewegungen 0,895, Angriffe 0,381, Faehigkeiten 0,433
+Held             Siegquote  Rang   vorher    Δ pp   Faehigkeit je Partie (alle / mit Held)
+elementarmagier      63,31     1    59,84    3,47   Elementarschlag (Feuer + Erde): 1,265 / 2,288
+elfe                 60,29     2    58,50    1,79   Heilung: 7,257 / 13,125
+berserker            56,87     3    55,05    1,82   Blutrausch (passiv): 0,000 / 0,000
+illusionist          55,96     4    56,64   -0,68   Trugbild: 2,980 / 5,389
+wand                 52,96     5    51,04    1,92   Mauer: 5,112 / 9,245
+bogenschuetze        47,69     6    46,26    1,43   Aufladen (Laden + Abbrechen): 2,970 / 5,371
+schildtraeger        47,23     7    45,53    1,70   Schildwall: 4,803 / 8,687
+musiker              37,45     8    39,32   -1,87   Lied (Kampf- + Marschlied): 2,835 / 5,126
+hugger               28,23     9    37,80   -9,57   Umklammerung (Greifen + Loesen): 5,384 / 9,736
+Tank-Rangfolge: illusionist 55,96 > wand 52,96 > schildtraeger 47,23
+
+=== uniform ===
+Partiedauer 29,47 Runden, Rundenlimit 15,41 %
+je Heldenzug: Bewegungen 0,916, Angriffe 0,350, Faehigkeiten 0,450
+Held             Siegquote  Rang   vorher    Δ pp   Faehigkeit je Partie (alle / mit Held)
+elementarmagier      62,66     1    58,61    4,05   Elementarschlag (Feuer + Erde): 1,537 / 2,781
+elfe                 61,81     2    60,51    1,30   Heilung: 8,646 / 15,636
+wand                 55,19     3    53,31    1,88   Mauer: 5,387 / 9,742
+berserker            54,75     4    52,94    1,81   Blutrausch (passiv): 0,000 / 0,000
+bogenschuetze        53,43     5    51,50    1,93   Aufladen (Laden + Abbrechen): 2,631 / 4,759
+illusionist          52,90     6    52,88    0,02   Trugbild: 3,156 / 5,707
+schildtraeger        51,25     7    49,76    1,49   Schildwall: 5,189 / 9,384
+musiker              34,99     8    34,97    0,02   Lied (Kampf- + Marschlied): 3,199 / 5,786
+hugger               23,04     9    35,52  -12,48   Umklammerung (Greifen + Loesen): 7,475 / 13,518
+Tank-Rangfolge: wand 55,19 > illusionist 52,90 > schildtraeger 51,25
+
+=== aggressive ===
+Partiedauer 11,34 Runden, Rundenlimit 0,64 %
+je Heldenzug: Bewegungen 0,953, Angriffe 0,787, Faehigkeiten 0,092
+Held             Siegquote  Rang   vorher    Δ pp   Faehigkeit je Partie (alle / mit Held)
+berserker            68,07     1    51,33   16,74   Blutrausch (passiv): 0,000 / 0,000
+wand                 63,35     2    58,96    4,39   Mauer: 0,251 / 0,453
+schildtraeger        55,40     3    49,34    6,06   Schildwall: 0,321 / 0,580
+bogenschuetze        54,67     4    49,18    5,49   Aufladen (Laden + Abbrechen): 0,002 / 0,003
+illusionist          51,19     5    46,51    4,68   Trugbild: 0,311 / 0,563
+elfe                 44,27     6    36,29    7,98   Heilung: 0,269 / 0,486
+elementarmagier      42,15     7    34,33    7,82   Elementarschlag (Feuer + Erde): 0,241 / 0,436
+musiker              41,47     8    60,91  -19,44   Lied (Kampf- + Marschlied): 1,432 / 2,589
+hugger               29,41     9    63,08  -33,67   Umklammerung (Greifen + Loesen): 0,022 / 0,039
+Tank-Rangfolge: wand 63,35 > schildtraeger 55,40 > illusionist 51,19
+
+=== Rangfolgen und Rangkorrelationen ===
+  byactiontype : elementarmagier 63,3, elfe 60,3, berserker 56,9, illusionist 56,0, wand 53,0, bogenschuetze 47,7, schildtraeger 47,2, musiker 37,5, hugger 28,2
+  uniform      : elementarmagier 62,7, elfe 61,8, wand 55,2, berserker 54,8, bogenschuetze 53,4, illusionist 52,9, schildtraeger 51,2, musiker 35,0, hugger 23,0
+  aggressive   : berserker 68,1, wand 63,3, schildtraeger 55,4, bogenschuetze 54,7, illusionist 51,2, elfe 44,3, elementarmagier 42,1, musiker 41,5, hugger 29,4
+  byactiontype / uniform: Spearman 0,917, Kendall 0,833
+  byactiontype / aggressive: Spearman 0,283, Kendall 0,167
+  uniform / aggressive: Spearman 0,333, Kendall 0,222

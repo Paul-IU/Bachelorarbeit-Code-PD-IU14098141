@@ -23,7 +23,7 @@ namespace TacticsCore.Effects;
 ///   - Flächen-Schadensreduktion       -&gt; IncomingDamageMultiplier + Duration (Feld-Anker)
 ///   - Selbstbeschränkung (bewegungsunfähig) -&gt; PreventsMovement + Duration
 ///   - Feldsperre für Gegner           -&gt; LocksFieldForEnemies (Feld-Anker)
-///   - Angriffsblockade/Umleitung      -&gt; RedirectsAttacksToSource (Feld-Anker)
+///   - Angriffsblockade/Umleitung      -&gt; RedirectsAttacksToSource (Feld-Anker; nur Angriffe von GEGNERN des Anwenders, siehe CombatSystem.ResolveRedirect)
 ///   - Anheftung an eine Einheit       -&gt; ergibt sich automatisch aus Unit-Anker (kein eigenes Feld nötig, siehe ActiveEffect)
 ///   - Aufladender Eigenzustand        -&gt; PreventsMovement + BonusDamageForNextAttack gemeinsam auf einem Unit-Effekt
 ///   - Passive, wertabhängige Wirkung  -&gt; NICHT hier, sondern IHasPassiveStatContribution (kein gespeicherter Effekt, da live berechnet)
@@ -106,6 +106,64 @@ namespace TacticsCore.Effects;
 ///     komplett neuen, zweiten Distanzmechanismus einführen zu müssen und
 ///     ohne die bestehende, bei der Elfe bewährte Formel für alle anderen
 ///     Fähigkeiten zu verändern.
+///   - DamagePerTickReductionPerTick (Bachelorarbeit-Korrektur,
+///     Elementarmagier-Feuer): der Schaden über Zeit soll mit jedem Tick um
+///     einen festen Betrag ABKLINGEN (3, dann 2, dann 1 bei Duration 3)
+///     statt konstant zu bleiben - <see cref="Effects.EffectSystem.TickDamageOverTime"/>
+///     zieht diesen Betrag GENERISCH nach jedem Tick vom aktuellen
+///     <see cref="DamagePerTick"/> DIESER Effekt-Instanz ab (nach unten
+///     begrenzt bei 0, nie negativer Schaden). Standardwert <c>null</c>
+///     bedeutet "kein Abklingen" und entspricht exakt dem bisherigen,
+///     konstanten Verhalten - kein bestehendes Template ändert sein
+///     Verhalten durch die Einführung dieses Feldes. WICHTIG gegen
+///     Stapeln durch Mehrfacheinsatz: ein erneuter Einsatz auf ein bereits
+///     brennendes Ziel erzeugt bei <see cref="StackingRule.RefreshDuration"/>
+///     (wie hier) ohnehin KEINE zweite, parallele Instanz (siehe
+///     <see cref="Effects.EffectSystem.Apply"/>) - zusätzlich setzt das
+///     Auffrischen auch den bereits abgeklungenen Schaden wieder auf den
+///     vollen Ausgangswert zurück, ein wiederholtes Anzünden liefert also
+///     bei jedem Neueinsatz wieder dieselbe 3-2-1-Abklingfolge, statt sich
+///     über mehrere Einsätze hinweg aufzusummieren.
+///   - FieldFollowsSource (Bachelorarbeit-Designentscheidung, Mauer der Wand):
+///     ein FELD-verankerter Effekt, dessen Feld dem Anwender folgt - zieht die
+///     Quelle um, wandert der Effekt samt aller Wirkungen (Feldsperre,
+///     Umleitung, Schadensreduktion) auf ihr neues Feld (siehe
+///     <see cref="TacticsCore.GameState.MoveUnit"/>, die einzige Stelle, an der
+///     sich Positionen ändern). Technisch bleibt es ein Feldeffekt, damit alle
+///     Systeme, die "Effekte auf diesem Feld" lesen (Bewegungssperre,
+///     Umleitung, Schadensreduktion, Anzeige), unverändert bleiben können.
+///     Weil ein solcher Effekt zu genau EINEM Anwender gehört, ist der Anwender
+///     Teil seiner Stapel-Identität (siehe EffectSystem.FindMatching): zwei
+///     Anwender auf demselben Feld erzeugen zwei getrennte Instanzen.
+///     Standardwert false = bisheriges, ortsfestes Verhalten.
+///   - TargetingProtectionSuspendedByAttackRounds (Designentscheidung
+///     "Hugger-Überarbeitung"): nur zusammen mit PreventsBeingTargetedByEnemies
+///     sinnvoll. Greift der Träger dieses Effekts an, wird seine Unangreifbarkeit
+///     für so viele Runden aufgehoben: das Kampfsystem legt dafür einen
+///     Markereffekt "Exponiert" (SuspendsTargetingProtection) mit dieser Dauer
+///     auf ihn. Die Dauer zählt - wie jede Effektdauer - zu Beginn der eigenen
+///     Züge des Trägers herunter; Dauer 1 heißt also: angreifbar vom Angriff bis
+///     zum Beginn seines NÄCHSTEN eigenen Zugs, genau eine Runde (anders als eine
+///     ABKLINGZEIT, deren Wert 1 wirkungslos wäre, siehe DefaultHeroes.WandMauerAbklingzeit).
+///     Der Schutzeffekt selbst bleibt bestehen. null = ein Angriff hebt nichts auf.
+///   - SuspendsTargetingProtection: hebt, solange aktiv, jede
+///     PreventsBeingTargetedByEnemies-Wirkung auf der Einheit auf (siehe
+///     EffectiveStats.PreventsBeingTargetedBy).
+///   - ReflectsFractionOfRedirectedDamage (Bachelorarbeit-Korrektur,
+///     Wand-Rework): NUR gemeinsam mit <see cref="RedirectsAttacksToSource"/>
+///     auf einem FELD-verankerten Effekt sinnvoll - ein Bruchteil (z.B. 0.5
+///     = 50%) des URSPRÜNGLICHEN, noch unreduzierten Schadens wird an den
+///     Angreifer zurückgegeben, wenn sein Angriff auf dieses Feld umgeleitet
+///     wird (nur Angriffe von Gegnern werden umgeleitet; ein direkter Angriff
+///     auf den Anwender löst keine Vergeltung aus) (siehe <see cref="Combat.CombatSystem.ApplyDamageAndHandleDefeat(GameState, Units.Unit, Units.Unit, int)"/>).
+///     GRUND FÜR DIE ERWEITERUNG: die Wand bezahlte ihre Umleitung bislang
+///     mit eigener Bewegungsunfähigkeit, ohne dafür irgendeine eigene
+///     Gegenwirkung zu erhalten - ein reiner Kostenpunkt ohne Gegenwert.
+///     Dieses Feld gibt der Umleitung selbst eine offensive Komponente,
+///     unabhängig von der (jetzt entfallenen) Bewegungssperre. Standardwert
+///     <c>null</c> bedeutet "keine Vergeltung" und entspricht exakt dem
+///     bisherigen Verhalten jeder Umleitung - kein bestehendes Template
+///     ändert sein Verhalten durch die Einführung dieses Feldes.
 /// </summary>
 public sealed record EffectTemplate(
     string Name,
@@ -119,12 +177,14 @@ public sealed record EffectTemplate(
     int? MinimumAfterDistanceScaling = null,
     int PlateauRadius = 0,
     int? DamagePerTick = null,
+    int? DamagePerTickReductionPerTick = null,
     StatModifierSet? StatModifiers = null,
     StatModifierSet? StatModifiersForEnemy = null,
     double? IncomingDamageMultiplier = null,
     bool PreventsMovement = false,
     bool LocksFieldForEnemies = false,
     bool RedirectsAttacksToSource = false,
+    double? ReflectsFractionOfRedirectedDamage = null,
     int? BonusDamageForNextAttack = null,
     int? MaximumAccumulatedBonusDamage = null,
     bool SpawnsClone = false,
@@ -132,4 +192,7 @@ public sealed record EffectTemplate(
     string? CancelEffectName = null,
     bool CausesSourceToFollowTarget = false,
     bool PreventsAttacking = false,
-    bool PreventsBeingTargetedByEnemies = false);
+    bool PreventsBeingTargetedByEnemies = false,
+    bool FieldFollowsSource = false,
+    int? TargetingProtectionSuspendedByAttackRounds = null,
+    bool SuspendsTargetingProtection = false);

@@ -13,8 +13,9 @@ namespace TacticsCore.Agents;
 /// stabil sortiert wie überall sonst im System - und übergibt sie der
 /// Eingabequelle zur Auswahl.
 ///
-/// Bewusst genauso zustandslos wie <see cref="RandomAgent"/> (siehe dortige
-/// Begründung) - der einzige "Zustand" ist die vom Aufrufer übergebene
+/// Bewusst genauso zustandslos wie <see cref="RandomAgentByActionType"/>
+/// bzw. <see cref="RandomAgentUniform"/> (siehe dortige Begründung) - der
+/// einzige "Zustand" ist die vom Aufrufer übergebene
 /// Eingabequelle, die HumanAgent selbst nicht verändert.
 /// </summary>
 public sealed class HumanAgent : IAgent

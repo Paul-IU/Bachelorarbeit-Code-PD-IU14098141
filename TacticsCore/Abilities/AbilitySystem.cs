@@ -20,11 +20,28 @@ public static class AbilitySystem
 {
     /// <summary>
     /// Liefert alle aktuell legalen Fähigkeitseinsätze (Ziel + ggf. Modus)
-    /// für <paramref name="hero"/>, stabil sortiert nach (q, r, UnitId) -
-    /// bei Feld-Zielen wird dafür die Feldkoordinate selbst als (q, r)
-    /// verwendet und Guid.Empty als Platzhalter für die (in dem Fall nicht
-    /// vorhandene) UnitId. Leere Liste, wenn die Fähigkeit passiv ist, der
-    /// Held ein Klon ist, oder eine Abklingzeit läuft.
+    /// für <paramref name="hero"/>, stabil sortiert nach (q, r, Team-Bezug,
+    /// UnitId) - bei Feld-Zielen wird dafür die Feldkoordinate selbst als
+    /// (q, r) verwendet und Guid.Empty als Platzhalter für die (in dem Fall
+    /// nicht vorhandene) UnitId. Leere Liste, wenn die Fähigkeit passiv ist,
+    /// der Held ein Klon ist, oder eine Abklingzeit läuft.
+    ///
+    /// TEAMNEUTRALE SORTIERUNG (Bachelorarbeit-Korrektur "Symmetrie der
+    /// Spiegelpaarungen"): Stehen auf DEMSELBEN Feld mehrere Optionen, kommen
+    /// Optionen mit Ziel im EIGENEN Team (der Anwender selbst eingeschlossen)
+    /// vor Optionen mit gegnerischem Ziel, erst danach entscheidet die UnitId.
+    /// Ohne diese Zwischenstufe hing die Reihenfolge davon ab, welches Team die
+    /// kleineren Ids trägt (Team A 1-3, Team B 101-103): der Zufallsagent wählt
+    /// per Index, ein Teamtausch (siehe GameSetup.WithSwappedTeams) ließ ihn
+    /// bei gleichem Zufallswert eine ANDERE Option treffen. Praktisch trat das
+    /// nur beim Hugger auf - seine Fähigkeit bietet über
+    /// <see cref="AbilityTargetType.AnyUnit"/> eigene UND gegnerische Einheiten
+    /// in derselben Liste an, und nach dem Greifen stehen "Lösen" (Schlüssel =
+    /// eigene Id des Huggers) und "Greifen" (Schlüssel = Id des Ziels) auf
+    /// demselben Feld. Innerhalb EINES Teams bleibt die Id-Reihenfolge
+    /// erhalten (ein Teamtausch vertauscht die Id-Bereiche geschlossen), für
+    /// alle anderen Fähigkeiten (nur eigene ODER nur gegnerische Ziele) ist der
+    /// neue Schlüssel konstant und ändert nichts.
     ///
     /// KLON-ERZEUGENDE FÄHIGKEITEN sind bewusst NICHT blockiert, solange
     /// bereits ein Klon existiert (anders als in einer früheren Fassung):
@@ -64,14 +81,14 @@ public static class AbilitySystem
             // GENAU EINMAL angeboten - mit dem Anwender selbst als rein
             // technischem Platzhalter-Ziel -, statt einmal je Zielkandidat
             // sinnlos vervielfacht zu werden.
-            foreach (var mode in ability.Modes.Where(m => m.IgnoresChosenTarget && (m.IsLegal is null || m.IsLegal(hero, state))))
+            foreach (var mode in ability.Modes.Where(m => m.IgnoresChosenTarget && IsModeLegal(m, hero, state)))
             {
                 options.Add(new AbilityUseOption(new AbilityTarget.UnitTarget(hero), mode));
             }
 
             foreach (var target in targets)
             {
-                foreach (var mode in ability.Modes.Where(m => !m.IgnoresChosenTarget && (m.IsLegal is null || m.IsLegal(hero, state))))
+                foreach (var mode in ability.Modes.Where(m => !m.IgnoresChosenTarget && IsModeLegal(m, hero, state)))
                 {
                     options.Add(new AbilityUseOption(target, mode));
                 }
@@ -81,6 +98,7 @@ public static class AbilitySystem
         return options
             .OrderBy(o => SortKey(o.Target).Q)
             .ThenBy(o => SortKey(o.Target).R)
+            .ThenBy(o => o.Target is AbilityTarget.UnitTarget ut && ut.Unit.Team != hero.Team ? 1 : 0)
             .ThenBy(o => SortKey(o.Target).UnitId)
             .ThenBy(o => o.Mode?.Id ?? string.Empty, StringComparer.Ordinal)
             .ToList();
@@ -119,6 +137,17 @@ public static class AbilitySystem
         return true;
     }
 
+    /// <summary>
+    /// Ob ein Modus gerade wählbar ist: seine eigene Bedingung
+    /// (<see cref="AbilityMode.IsLegal"/>) UND - Behebung der Regellücke
+    /// "angehefteter letzter Held", siehe <see cref="EffectSystem.ReleaseAttachmentsOfLastHeroes"/> -
+    /// kein Modus, der den Anwender anheftet, solange er der letzte lebende Held
+    /// seines Teams ist (sonst wäre er sofort wieder unangreifbar).
+    /// </summary>
+    private static bool IsModeLegal(AbilityMode mode, Hero hero, GameState state) =>
+        (mode.IsLegal is null || mode.IsLegal(hero, state))
+        && !(mode.Effects.Any(e => e.CausesSourceToFollowTarget) && EffectSystem.IsLastHeroOfTeam(hero, state));
+
     private static bool CanUseAbility(Hero hero, AbilityTarget target, GameState state, AbilityMode? mode)
     {
         var ability = hero.Definition.Ability;
@@ -139,7 +168,7 @@ public static class AbilitySystem
                 return false; // Modus angegeben, obwohl die Fähigkeit keine Moduswahl kennt
             }
         }
-        else if (mode is null || !ability.Modes.Any(m => m.Id == mode.Id && (m.IsLegal is null || m.IsLegal(hero, state))))
+        else if (mode is null || !ability.Modes.Any(m => m.Id == mode.Id && IsModeLegal(m, hero, state)))
         {
             return false;
         }
@@ -456,7 +485,8 @@ public static class AbilitySystem
                 ScaleNonZeroByDistance(baseModifiers.BaseAttackDamageDelta, distance, effectiveTemplate),
                 ScaleNonZeroByDistance(baseModifiers.MovementRangeDelta, distance, effectiveTemplate),
                 ScaleNonZeroByDistance(baseModifiers.AttackRangeDelta, distance, effectiveTemplate),
-                ScaleNonZeroByDistance(baseModifiers.SpeedDelta, distance, effectiveTemplate));
+                ScaleNonZeroByDistance(baseModifiers.SpeedDelta, distance, effectiveTemplate),
+                ScaleMultiplierByDistance(baseModifiers.AttackDamageMultiplier, distance, effectiveTemplate));
             effectiveTemplate = effectiveTemplate with { StatModifiers = scaledModifiers };
         }
 
@@ -467,6 +497,25 @@ public static class AbilitySystem
 
     private static int ScaleNonZeroByDistance(int value, int distance, EffectTemplate template) =>
         value == 0 ? 0 : ScaleByDistance(value, distance, template);
+
+    /// <summary>
+    /// Entfernungsskalierung eines prozentualen Schadensmodifikators (Designentscheidung
+    /// "Kampflied prozentual"): skaliert wird die Abweichung von 1 in PROZENTPUNKTEN
+    /// über dieselbe Formel wie die Deltas (<see cref="ScaleByDistance"/>) - beim
+    /// Kampflied 1,4 (+40) mit Abfall 20 je Schritt hinter dem Plateau: Distanz 2 ->
+    /// +20 -> 1,2. Innerhalb des Plateaus bleibt der Multiplikator exakt unverändert.
+    /// </summary>
+    private static double ScaleMultiplierByDistance(double multiplier, int distance, EffectTemplate template)
+    {
+        if (multiplier == 1.0)
+        {
+            return 1.0;
+        }
+
+        int percentPoints = (int)Math.Round((multiplier - 1.0) * 100);
+        int scaled = ScaleByDistance(percentPoints, distance, template);
+        return scaled == percentPoints ? multiplier : 1.0 + scaled / 100.0;
+    }
 
     /// <summary>
     /// Lineare Entfernungsskalierung MIT optionalem Plateau (Anforderung 8):

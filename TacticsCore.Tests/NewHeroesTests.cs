@@ -73,8 +73,15 @@ public class NewHeroesTests
         Assert.True(wand.CurrentHitPoints < wand.MaxHitPoints);
     }
 
+    /// <summary>
+    /// Bachelorarbeit-Korrektur (Fähigkeits-Rework): die vormalige eigene
+    /// Bewegungsunfähigkeit nach Einsatz ist ersatzlos entfallen (siehe
+    /// Klassendokumentation von <see cref="DefaultHeroes.Wand"/>) - die Wand
+    /// bezahlte ihre Umleitung sonst mit einem reinen Kostenpunkt ohne
+    /// Gegenwert. Regressionstest gegen ein versehentliches Wiedereinführen.
+    /// </summary>
     [Fact]
-    public void Wand_IstWaehrendDerSperreSelbstBewegungsunfaehig()
+    public void Wand_BleibtNachEinsatzBewegungsfaehig()
     {
         var state = NewState();
         var wand = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Wand);
@@ -82,11 +89,15 @@ public class NewHeroesTests
 
         Assert.NotEmpty(wand.GetLegalMoves(state));
         Assert.True(AbilitySystem.TryUseAbility(wand, new AbilityTarget.FieldTarget(wand.Position), state));
-        Assert.Empty(wand.GetLegalMoves(state)); // keine legalen Bewegungszüge, nicht einmal "stehen bleiben"
+        Assert.NotEmpty(wand.GetLegalMoves(state)); // weiterhin normal beweglich, keine Selbstsperre mehr
+        // Es EXISTIERT weiterhin ein unit-verankerter Effekt auf ihr selbst
+        // (die neue Selbstreduktion, siehe DefaultHeroes.Wand), aber KEINER
+        // davon sperrt die Bewegung.
+        Assert.All(state.GetEffectsOnUnit(wand.Id), e => Assert.False(e.PreventsMovement));
     }
 
     [Fact]
-    public void Wand_SperreEndetKorrektWennDieBewegungsunfaehigkeitEndet()
+    public void Wand_SperreEndetNachAblaufDerDauer()
     {
         var state = NewState();
         var wand = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 2), DefaultHeroes.Wand);
@@ -95,18 +106,104 @@ public class NewHeroesTests
         state.AddUnit(enemy);
 
         AbilitySystem.TryUseAbility(wand, new AbilityTarget.FieldTarget(wand.Position), state);
-        Assert.Empty(wand.GetLegalMoves(state));
         Assert.DoesNotContain(new HexCoordinate(0, 2), enemy.GetLegalMoves(state));
 
-        // Feld-verankerte Effekte ticken einmal je Runde (siehe EffectSystem) -
-        // bei Dauer 1 reicht ein einziger Tick, um BEIDE gekoppelten
-        // Instanzen (Feldsperre + Bewegungsunfähigkeit) zu beenden.
-        EffectSystem.TickFieldEffects(state);
+        // Die Dauer zählt zu Beginn des nächsten eigenen Zugs des ANWENDERS
+        // (siehe EffectSystem) - bei Dauer 1 reicht ein einziger Tick der
+        // Wand, um Sperre UND gekoppelte Selbstreduktion gemeinsam zu beenden.
+        EffectSystem.TickUnitEffects(state, wand);
 
         Assert.Empty(state.GetEffectsOnField(wand.Position));
-        Assert.Empty(state.GetEffectsOnUnit(wand.Id));
-        Assert.NotEmpty(wand.GetLegalMoves(state)); // Wand kann sich wieder bewegen
+        Assert.Empty(state.GetEffectsOnUnit(wand.Id)); // gekoppelte Selbstreduktion endet zugleich
         Assert.Contains(new HexCoordinate(0, 2), enemy.GetLegalMoves(state)); // Feld wieder passierbar
+    }
+
+    /// <summary>
+    /// Bachelorarbeit-Korrektur (Fähigkeits-Rework): jeder umgeleitete
+    /// Treffer gibt der Wand die Hälfte des dabei TATSÄCHLICH erlittenen
+    /// (bereits reduzierten) Schadens als Vergeltungsschaden an den
+    /// ursprünglichen Angreifer zurück (siehe
+    /// <see cref="EffectTemplate.ReflectsFractionOfRedirectedDamage"/>).
+    /// </summary>
+    [Fact]
+    public void Wand_UmleitungGibtVergeltungsschadenAnDenAngreiferZurueck()
+    {
+        var state = NewState();
+        var wand = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Wand);
+        var allySharingField = new TestUnit(Id(2), Team.TeamA, new HexCoordinate(0, 1), speed: 10);
+        var enemyAttacker = new TestUnit(Id(3), Team.TeamB, new HexCoordinate(0, 3), speed: 10, attackRange: 2);
+        state.AddUnit(wand);
+        state.AddUnit(allySharingField);
+        state.AddUnit(enemyAttacker);
+
+        AbilitySystem.TryUseAbility(wand, new AbilityTarget.FieldTarget(wand.Position), state);
+        int attackerHpBefore = enemyAttacker.CurrentHitPoints;
+
+        bool attacked = CombatSystem.TryAttackDetailed(enemyAttacker, allySharingField, state, out var actualTarget, out int damageDealt);
+
+        Assert.True(attacked);
+        Assert.Same(wand, actualTarget); // Umleitung greift wie gehabt
+        // Vergeltung basiert auf dem URSPRÜNGLICHEN, unreduzierten Schaden
+        // (enemyAttacker.BaseAttackDamage), NICHT auf dem bereits um die
+        // eigene Selbstreduktion gekürzten damageDealt - siehe
+        // CombatSystem.ApplyDamageAndHandleDefeat für die Begründung.
+        int expectedRetaliation = (int)Math.Round(enemyAttacker.BaseAttackDamage * 0.5);
+        Assert.Equal(attackerHpBefore - expectedRetaliation, enemyAttacker.CurrentHitPoints);
+    }
+
+    /// <summary>
+    /// Bachelorarbeit-Korrektur (Fähigkeits-Rework, zweiter Durchgang): die
+    /// Wand nimmt bei einem umgeleiteten Treffer zusätzlich selbst reduzierten
+    /// Schaden (seit "Mauer abschwächen" 75 % statt der Hälfte) - ausdrücklich
+    /// NUR sie selbst, ein Verbündeter, der sich das Feld mit ihr teilt, bleibt
+    /// davon unberührt (anders als bei Schildträgers Schildwall, das das ganze
+    /// Feld schützt).
+    /// </summary>
+    [Fact]
+    public void Wand_NimmtBeiUmleitungSelbstReduziertenSchadenVerbuendeterAufDemselbenFeldBleibtUnberuehrt()
+    {
+        var state = NewState();
+        var wand = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Wand);
+        var allySharingField = new TestUnit(Id(2), Team.TeamA, new HexCoordinate(0, 1), speed: 10);
+        var enemyAttacker = new TestUnit(Id(3), Team.TeamB, new HexCoordinate(0, 3), speed: 10, attackRange: 2);
+        state.AddUnit(wand);
+        state.AddUnit(allySharingField);
+        state.AddUnit(enemyAttacker);
+
+        AbilitySystem.TryUseAbility(wand, new AbilityTarget.FieldTarget(wand.Position), state);
+        int wandHpBefore = wand.CurrentHitPoints;
+
+        bool attacked = CombatSystem.TryAttackDetailed(enemyAttacker, allySharingField, state, out var actualTarget, out int damageDealt);
+
+        Assert.True(attacked);
+        Assert.Same(wand, actualTarget);
+        int expectedSelfDamage = (int)Math.Round(enemyAttacker.BaseAttackDamage * DefaultHeroes.WandMauerSchadensmultiplikator);
+        Assert.Equal(expectedSelfDamage, damageDealt); // nur 75 % des ursprünglichen Schadens angewendet
+        Assert.Equal(wandHpBefore - expectedSelfDamage, wand.CurrentHitPoints);
+        Assert.Equal(allySharingField.MaxHitPoints, allySharingField.CurrentHitPoints); // Verbündeter profitiert NICHT von der Selbstreduktion
+    }
+
+    /// <summary>
+    /// Ohne tatsächliche Umleitung (kein blockierendes Feld auf der
+    /// Sichtlinie) darf auch kein Vergeltungsschaden entstehen - das Feld
+    /// ist ausschließlich an <see cref="EffectTemplate.RedirectsAttacksToSource"/>
+    /// gekoppelt, nicht an einen generellen "jeder Treffer wird vergolten"-Automatismus.
+    /// </summary>
+    [Fact]
+    public void OhneUmleitung_EntstehtKeinVergeltungsschaden()
+    {
+        var state = NewState();
+        var wand = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Wand);
+        var enemyAttacker = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 1), speed: 10);
+        state.AddUnit(wand);
+        state.AddUnit(enemyAttacker);
+        int attackerHpBefore = enemyAttacker.CurrentHitPoints;
+
+        // Direkter Angriff auf die Wand selbst, OHNE vorherigen Fähigkeitseinsatz -
+        // keine aktive Umleitung, also auch keine Vergeltung.
+        CombatSystem.TryAttackDetailed(enemyAttacker, wand, state, out _, out _);
+
+        Assert.Equal(attackerHpBefore, enemyAttacker.CurrentHitPoints);
     }
 
     // -----------------------------------------------------------------
@@ -262,9 +359,13 @@ public class NewHeroesTests
         Assert.True(EffectiveStats.AttackDamage(ally, state) > ally.BaseAttackDamage); // Verbündeter profitiert
         Assert.Equal(enemy.BaseAttackDamage, EffectiveStats.AttackDamage(enemy, state)); // Gegner NICHT betroffen
 
-        // Dauer 2 - zwei Ticks am eigenen Zug des Verbündeten beenden den Buff.
+        // Dauer 1 (Designentscheidung "Echte Pausen", vorher 2) - der Tick am
+        // nächsten eigenen Zug des ANWENDERS (Musiker) beendet den Buff, nicht der
+        // Zug des Verbündeten (Korrektur "Wirkungsdauer hängt am Anwender", siehe EffectSystem).
+        Assert.Equal(1, DefaultHeroes.MusikerLiedDauer);
         EffectSystem.TickUnitEffects(state, ally);
-        EffectSystem.TickUnitEffects(state, ally);
+        Assert.NotEmpty(state.GetEffectsOnUnit(ally.Id)); // Zug des Verbündeten zählt die Dauer NICHT herunter
+        EffectSystem.TickUnitEffects(state, musiker);
         Assert.Empty(state.GetEffectsOnUnit(ally.Id));
         Assert.Equal(ally.BaseAttackDamage, EffectiveStats.AttackDamage(ally, state));
     }
@@ -293,9 +394,11 @@ public class NewHeroesTests
         int bonusD1 = EffectiveStats.AttackDamage(allyD1, state) - allyD1.BaseAttackDamage;
         int bonusD2 = EffectiveStats.AttackDamage(allyD2, state) - allyD2.BaseAttackDamage;
 
-        Assert.Equal(3, bonusD0);
-        Assert.Equal(3, bonusD1); // Plateau: exakt so stark wie Distanz 0, nicht mehr nur angenähert
-        Assert.Equal(1, bonusD2); // erst hinter dem Plateau schwächer
+        // Designentscheidung "Kampflied prozentual": +40 % / +20 % statt absolut +60 / +40
+        // (bei 100 Grundschaden der Testeinheit also 40 / 20).
+        Assert.Equal(40, bonusD0);
+        Assert.Equal(40, bonusD1); // Plateau: exakt so stark wie Distanz 0
+        Assert.Equal(20, bonusD2); // erst hinter dem Plateau schwächer
         Assert.Equal(bonusD0, bonusD1);
         Assert.True(bonusD2 < bonusD1);
     }
@@ -443,7 +546,7 @@ public class NewHeroesTests
     }
 
     [Fact]
-    public void Hugger_KannWaehrendDerAnheftungNichtAngreifenAberDieAnheftungLoesen()
+    public void Hugger_KannWaehrendDerAnheftungAngreifenUndDieAnheftungLoesen()
     {
         var state = NewState();
         var hugger = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Hugger);
@@ -462,8 +565,10 @@ public class NewHeroesTests
 
         AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(ally), state, GreifenMode(hugger));
 
-        Assert.Empty(hugger.GetLegalAttacks(state)); // keine Angriffszüge mehr
-        Assert.False(hugger.TryAttack(enemy, state));
+        // Designentscheidung "Hugger-Überarbeitung": angeheftet bleibt er angriffsfähig
+        // (vorher Angriffssperre), nur mit halbem Schaden - siehe HuggerUeberarbeitungTests.
+        Assert.Contains(enemy, hugger.GetLegalAttacks(state));
+        Assert.Equal(DefaultHeroes.HuggerGrundschaden / 2, EffectiveStats.AttackDamage(hugger, state));
         Assert.Contains(AbilitySystem.GetLegalAbilityUses(hugger, state), o => o.Mode?.Id == "loesen"); // jetzt wählbar
         Assert.Contains(AbilitySystem.GetLegalAbilityUses(hugger, state), o => o.Mode?.Id == "greifen"); // Ziel wechseln bleibt ebenfalls möglich
 
@@ -499,8 +604,11 @@ public class NewHeroesTests
     // -----------------------------------------------------------------
 
     [Fact]
-    public void Elementarmagier_FeuerVerursachtSofortschadenPlusSchadenUeberZeit()
+    public void Elementarmagier_FeuerVerursachtSofortschadenPlusAbklingendenSchadenUeberZeit()
     {
+        // Bachelorarbeit-Korrektur: die Verbrennung soll natürlich abklingen
+        // (30, dann 20, dann 10 - ×10 skaliert) statt konstant zu brennen -
+        // siehe EffectTemplate.DamagePerTickReductionPerTick.
         var state = NewState();
         var mage = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), DefaultHeroes.Elementarmagier);
         var enemy = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 2), speed: 10);
@@ -510,12 +618,68 @@ public class NewHeroesTests
 
         Assert.True(AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, feuer));
 
-        Assert.Equal(enemy.MaxHitPoints - 10, enemy.CurrentHitPoints); // Sofortschaden
+        Assert.Equal(enemy.MaxHitPoints - 30, enemy.CurrentHitPoints); // Sofortschaden (Feuerball)
         var dot = Assert.Single(state.GetEffectsOnUnit(enemy.Id));
-        Assert.Equal(4, dot.DamagePerTick);
+        Assert.Equal(30, dot.DamagePerTick); // erster Tick: 30
 
         EffectSystem.TickUnitEffects(state, enemy);
-        Assert.Equal(enemy.MaxHitPoints - 10 - 4, enemy.CurrentHitPoints); // DoT-Tick wirkt zusätzlich
+        Assert.Equal(enemy.MaxHitPoints - 30 - 30, enemy.CurrentHitPoints);
+        Assert.Equal(20, dot.DamagePerTick); // zweiter Tick: 20 (abgeklungen)
+
+        EffectSystem.TickUnitEffects(state, enemy);
+        Assert.Equal(enemy.MaxHitPoints - 30 - 30 - 20, enemy.CurrentHitPoints);
+        Assert.Equal(10, dot.DamagePerTick); // dritter Tick: 10 (weiter abgeklungen)
+
+        EffectSystem.TickUnitEffects(state, enemy);
+        Assert.Equal(enemy.MaxHitPoints - 30 - 30 - 20 - 10, enemy.CurrentHitPoints); // letzter Tick: 10
+
+        // Schadens-Tick (Ziel) und Restlaufzeit (Anwender) sind getrennt: die
+        // drei Ticks am Ziel haben die Dauer NICHT verbraucht - die Verbrennung
+        // endet erst nach drei Zügen des Elementarmagiers (Duration 3).
+        Assert.NotEmpty(state.GetEffectsOnUnit(enemy.Id));
+        EffectSystem.TickUnitEffects(state, mage);
+        EffectSystem.TickUnitEffects(state, mage);
+        Assert.NotEmpty(state.GetEffectsOnUnit(enemy.Id));
+        EffectSystem.TickUnitEffects(state, mage);
+        Assert.Empty(state.GetEffectsOnUnit(enemy.Id)); // Verbrennung nach 3 Zügen des Anwenders beendet
+        Assert.Equal(enemy.MaxHitPoints - 30 - 30 - 20 - 10, enemy.CurrentHitPoints); // Ablauf verursacht keinen weiteren Schaden
+    }
+
+    /// <summary>
+    /// Bachelorarbeit-Korrektur: ein erneuter Einsatz von Feuer auf ein
+    /// bereits brennendes Ziel darf NICHT zu einer zweiten, parallel
+    /// laufenden Verbrennung führen (kein Stapeln des Tick-Schadens über
+    /// mehrere Einsätze hinweg) - stattdessen "zündet" er die bestehende
+    /// Abklingfolge lediglich neu (siehe EffectSystem.Apply,
+    /// StackingRule.RefreshDuration).
+    /// </summary>
+    [Fact]
+    public void Elementarmagier_ErneutesFeuerAufBereitsBrennendesZielStapeltDenTickSchadenNicht()
+    {
+        var state = NewState();
+        // Abklingzeit für DIESEN Test bewusst deaktiviert: er prüft gezielt
+        // die Stapel-/Auffrischungsmechanik zweier unmittelbar
+        // aufeinanderfolgender Einsätze - die separate Abklingzeit-Regel hat
+        // ihre eigene, dedizierte Testabdeckung (siehe "Abklingzeit_..."-Tests).
+        var definitionOhneAbklingzeit = DefaultHeroes.Elementarmagier with { Ability = DefaultHeroes.Elementarmagier.Ability with { CooldownRounds = null } };
+        var mage = NewHero(Id(1), Team.TeamA, new HexCoordinate(0, 1), definitionOhneAbklingzeit);
+        var enemy = new TestUnit(Id(2), Team.TeamB, new HexCoordinate(0, 2), speed: 10);
+        state.AddUnit(mage);
+        state.AddUnit(enemy);
+        var feuer = mage.Definition.Ability.Modes!.Single(m => m.Id == "feuer");
+
+        AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, feuer);
+        EffectSystem.TickUnitEffects(state, enemy); // ein Tick verbraucht: Tick-Schaden auf dem Effekt bereits auf 20 abgeklungen
+        EffectSystem.TickUnitEffects(state, mage); // ein eigener Zug des Anwenders: Restdauer bereits auf 2 gesunken
+
+        AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, feuer); // erneut anzünden
+
+        // Genau EINE Verbrennung, keine zweite parallele Instanz.
+        var dot = Assert.Single(state.GetEffectsOnUnit(enemy.Id));
+        // Der Tick-Schaden ist wieder auf den vollen Ausgangswert 30 zurückgesetzt,
+        // nicht bei den bereits abgeklungenen 20 stehen geblieben.
+        Assert.Equal(30, dot.DamagePerTick);
+        Assert.Equal(3, dot.RemainingDuration); // Dauer ebenfalls vollständig aufgefrischt
     }
 
     [Fact]
@@ -531,7 +695,7 @@ public class NewHeroesTests
 
         Assert.True(AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, erde));
 
-        Assert.Equal(enemy.MaxHitPoints - 8, enemy.CurrentHitPoints);
+        Assert.Equal(enemy.MaxHitPoints - 70, enemy.CurrentHitPoints); // Bachelorarbeit-Korrektur: ×10 skaliert, war -7
         Assert.Equal(rangeBefore - 1, EffectiveStats.MovementRange(enemy, state));
     }
 
@@ -573,7 +737,7 @@ public class NewHeroesTests
 
         Assert.True(AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, feuer));
 
-        Assert.Equal(2, mage.AbilityCooldownRemaining); // Teil des Spielzustands, direkt auslesbar
+        Assert.Equal(DefaultHeroes.ElementarmagierAbklingzeit, mage.AbilityCooldownRemaining); // Teil des Spielzustands, direkt auslesbar (seit "Echte Pausen" 3)
         Assert.Empty(AbilitySystem.GetLegalAbilityUses(mage, state)); // während der Abklingzeit keine Fähigkeit wählbar
         Assert.False(AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, feuer)); // auch ein direkter Versuch schlägt fehl
     }
@@ -588,16 +752,20 @@ public class NewHeroesTests
         state.AddUnit(enemy);
         var feuer = mage.Definition.Ability.Modes!.Single(m => m.Id == "feuer");
         AbilitySystem.TryUseAbility(mage, new AbilityTarget.UnitTarget(enemy), state, feuer);
-        Assert.Equal(2, mage.AbilityCooldownRemaining);
+        Assert.Equal(3, mage.AbilityCooldownRemaining); // seit "Echte Pausen" 3 (vorher 2)
 
         var agent = new ScriptedAgent();
         var controller = new MatchController(state, agent, new ScriptedAgent(), seed: 1);
 
         controller.ExecuteTurn(mage, agent, new Random(1), null, roundNumber: 2, startingTeam: Team.TeamA);
-        Assert.Equal(1, mage.AbilityCooldownRemaining);
+        Assert.Equal(2, mage.AbilityCooldownRemaining);
         Assert.Empty(AbilitySystem.GetLegalAbilityUses(mage, state)); // noch gesperrt
 
         controller.ExecuteTurn(mage, agent, new Random(1), null, roundNumber: 3, startingTeam: Team.TeamA);
+        Assert.Equal(1, mage.AbilityCooldownRemaining);
+        Assert.Empty(AbilitySystem.GetLegalAbilityUses(mage, state)); // weiterhin gesperrt
+
+        controller.ExecuteTurn(mage, agent, new Random(1), null, roundNumber: 4, startingTeam: Team.TeamA);
         Assert.Null(mage.AbilityCooldownRemaining); // Abklingzeit vollständig abgelaufen
         Assert.NotEmpty(AbilitySystem.GetLegalAbilityUses(mage, state)); // Fähigkeit wieder verfügbar
     }
@@ -618,17 +786,17 @@ public class NewHeroesTests
         var laden = LadenMode(archer);
 
         AbilitySystem.TryUseAbility(archer, new AbilityTarget.UnitTarget(archer), state, laden);
-        Assert.Equal(5, EffectiveStats.FindNextAttackBonus(archer, state)!.BonusDamageForNextAttack);
+        Assert.Equal(50, EffectiveStats.FindNextAttackBonus(archer, state)!.BonusDamageForNextAttack); // Bachelorarbeit-Korrektur: ×10 skaliert, war 5
 
         AbilitySystem.TryUseAbility(archer, new AbilityTarget.UnitTarget(archer), state, laden);
-        Assert.Equal(10, EffectiveStats.FindNextAttackBonus(archer, state)!.BonusDamageForNextAttack);
+        Assert.Equal(100, EffectiveStats.FindNextAttackBonus(archer, state)!.BonusDamageForNextAttack); // war 10
 
         for (int i = 0; i < 5; i++)
         {
             AbilitySystem.TryUseAbility(archer, new AbilityTarget.UnitTarget(archer), state, laden);
         }
 
-        Assert.Equal(20, EffectiveStats.FindNextAttackBonus(archer, state)!.BonusDamageForNextAttack); // gedeckelt
+        Assert.Equal(200, EffectiveStats.FindNextAttackBonus(archer, state)!.BonusDamageForNextAttack); // gedeckelt, war 20
     }
 
     [Fact]
@@ -674,7 +842,7 @@ public class NewHeroesTests
         bool attacked = CombatSystem.TryAttackDetailed(archer, enemy, state, out _, out int damageDealt);
 
         Assert.True(attacked);
-        Assert.Equal(archer.BaseAttackDamage + 5, damageDealt);
+        Assert.Equal(archer.BaseAttackDamage + 50, damageDealt); // Bachelorarbeit-Korrektur: Ladungsbonus ×10 skaliert, war +5
         Assert.Null(EffectiveStats.FindNextAttackBonus(archer, state)); // Ladung verbraucht
         Assert.NotEmpty(archer.GetLegalMoves(state)); // ... und damit auch die Bewegungsunfähigkeit vorbei
     }

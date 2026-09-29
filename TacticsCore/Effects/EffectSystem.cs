@@ -10,19 +10,43 @@ namespace TacticsCore.Effects;
 /// das Aufräumen beim Tod von Quelle oder Ziel.
 ///
 /// ZEITPUNKTE (Anforderung 10 - "klar definierter Zeitpunkt für Ticken und
-/// Ablaufen"):
-///   - Unit-verankerte Effekte (<see cref="TickUnitEffects"/>) ticken
-///     GENAU EINMAL, zu Beginn JEDES Zugs der betroffenen Einheit (siehe
-///     MatchController.ExecuteTurn) - noch bevor der Agent nach der ersten
-///     Teilaktion gefragt wird. Die Dauer zählt damit in EIGENEN Zügen der
-///     Einheit, nicht in Kalenderrunden: wird ein Effekt auf eine Einheit
-///     angewendet, bevor diese in der laufenden Runde schon an der Reihe
-///     war, tickt er noch in derselben Runde; kam die Einheit in dieser
-///     Runde schon dran, tickt er erst wieder in der nächsten.
-///   - Feld-verankerte Effekte (<see cref="TickFieldEffects"/>) haben
-///     keinen eigenen Zug, an dem sie ticken könnten - ihre Restdauer wird
-///     daher einmal zu Beginn JEDER Runde verringert (siehe
-///     MatchController.Run).
+/// Ablaufen"; Bachelorarbeit-Korrektur "Wirkungsdauer hängt am Anwender"):
+/// Es gibt genau ZWEI getrennte Vorgänge, beide zu Beginn eines Zugs (siehe
+/// MatchController.ExecuteTurn), noch bevor der Agent nach der ersten
+/// Teilaktion gefragt wird - aber an jeweils einer ANDEREN Einheit:
+///   - SCHADENS-TICK (<see cref="TickDamageOverTime"/>): beim Zugbeginn der
+///     ZIELEINHEIT - sie erleidet den Schaden über Zeit (z.B. Verbrennung)
+///     und der Tick-Schaden klingt ggf. ab.
+///   - DAUER-TICK (<see cref="TickDurationsOfSource"/>): beim Zugbeginn des
+///     ANWENDERS (<see cref="ActiveEffect.SourceUnitId"/>) - die Restdauer
+///     JEDES seiner Effekte mit begrenzter Dauer sinkt um 1, bei 0 endet der
+///     Effekt. Das gilt unabhängig vom Anker (unit- UND feld-verankert) und
+///     davon, wie viele Einheiten der Effekt betrifft: die Dauer hängt an
+///     genau EINER Stelle, dem Anwender, nicht an den Betroffenen. Ein
+///     Schildwall (Dauer 1), gesetzt in Runde N, schützt damit ALLE Einheiten
+///     auf seinem Feld bis zum Beginn des NÄCHSTEN eigenen Zugs seines
+///     Anwenders - also genau eine volle Runde, egal an welcher Position der
+///     Reihenfolge der Anwender steht.
+/// <see cref="TickUnitEffects"/> ruft beide Vorgänge in dieser Reihenfolge auf
+/// (erst der Schaden an der tickenden Einheit als ZIEL, dann die Dauer ihrer
+/// eigenen Effekte als ANWENDER) - das ist exakt die Reihenfolge "erst Schaden,
+/// dann Ablauf" des früheren, nur zielbezogenen Ticks.
+///
+/// FRÜHERES VERHALTEN (nur zur Nachvollziehbarkeit der Korrektur): unit-
+/// verankerte Effekte tickten samt Dauer beim Zugbeginn ihres ZIELS, feld-
+/// verankerte einmal zu Beginn JEDER RUNDE. Ein Schildwall/eine Mauer lief
+/// deshalb schon beim nächsten Rundenbeginn ab - also VOR den Zügen aller
+/// Einheiten, die in der Reihenfolge vor dem Anwender standen. Bei einem
+/// Anwender an spätem Rang schützte der Effekt praktisch nur den Rest der
+/// eigenen Runde.
+///
+/// TOD DES ANWENDERS: da die Dauer nur an den Zügen des Anwenders zählt,
+/// müsste ein Effekt eines gefallenen Anwenders sonst ewig bestehen bleiben.
+/// <see cref="RemoveEffectsRelatedTo"/> (aufgerufen nach jeder Niederlage)
+/// beendet deshalb - wie schon vor der Korrektur - ALLE Effekte, deren Quelle
+/// ODER Ziel die besiegte Einheit ist, sofort und ohne Dauer-Tick. Diese
+/// Regel ist mit der Korrektur nicht mehr nur eine Designentscheidung,
+/// sondern notwendige Voraussetzung.
 ///
 /// Reihenfolge innerhalb eines Tick-Aufrufs: Effekte werden in der
 /// Reihenfolge abgearbeitet, in der sie ursprünglich angewendet wurden
@@ -66,8 +90,16 @@ public static class EffectSystem
                 // Keine neue Instanz - nur die Restdauer der bereits
                 // bestehenden wird zurückgesetzt, daher kein zusätzlicher
                 // "Angewendet"-Eintrag (die erste Anwendung ist bereits
-                // protokolliert).
+                // protokolliert). Zusätzlich wird ein ggf. bereits
+                // abgeklungener Tick-Schaden (siehe DamagePerTickReductionPerTick)
+                // auf den vollen Ausgangswert des NEU angewendeten Templates
+                // zurückgesetzt - ein erneuter Einsatz (z.B. Elementarmagier-
+                // Feuer auf ein bereits brennendes Ziel) "zündet" die
+                // Abklingfolge also wieder von vorn an, statt sich über
+                // mehrere Einsätze hinweg unbemerkt aufzusummieren oder in
+                // einem bereits abgeklungenen Zustand zu verharren.
                 existing.SetRemainingDuration(effect.RemainingDuration);
+                existing.SetDamagePerTick(effect.DamagePerTick);
                 break;
 
             case StackingRule.Accumulate:
@@ -125,7 +157,8 @@ public static class EffectSystem
     /// <summary>
     /// Sucht eine bereits aktive, "gleichartige" Effekt-Instanz. Für die
     /// meisten Regeln bedeutet das: gleicher Name, gleicher Anker UND
-    /// gleiches Ziel. <see cref="StackingRule.ReplaceForSameSource"/> ist der
+    /// gleiches Ziel - bei Effekten mit <see cref="ActiveEffect.FieldFollowsSource"/>
+    /// zusätzlich derselbe Anwender. <see cref="StackingRule.ReplaceForSameSource"/> ist der
     /// bewusste Sonderfall (siehe dortige Dokumentation): dort zählt allein
     /// Name + Quelle, unabhängig vom (ggf. neuen) Ziel.
     /// </summary>
@@ -138,44 +171,99 @@ public static class EffectSystem
                 e.SourceUnitId == effect.SourceUnitId);
         }
 
+        // Effekte, deren Feld ihrem Anwender folgt (EffectTemplate.FieldFollowsSource,
+        // z.B. Mauer der Wand), gehören inhaltlich zu genau EINEM Anwender - bei
+        // ihnen ist der Anwender Teil der Identität. Zwei Wände auf demselben Feld
+        // erzeugen dadurch je ihre eigene Mauer, statt dass die zweite die Mauer der
+        // ersten auffrischt (Designentscheidung, siehe DefaultHeroes.Wand). Für alle
+        // übrigen Effekte bleibt es bei "gleicher Name, gleiches Ziel" - z.B. stapelt
+        // sich der Schildwall zweier Schildträger bewusst NICHT zu 0,25 Aufnahme.
         return state.ActiveEffects.FirstOrDefault(e =>
             e.Name == effect.Name &&
             e.AnchorType == effect.AnchorType &&
             e.TargetUnitId == effect.TargetUnitId &&
-            e.TargetField == effect.TargetField);
+            e.TargetField == effect.TargetField &&
+            (!(e.FieldFollowsSource || effect.FieldFollowsSource) || e.SourceUnitId == effect.SourceUnitId));
     }
 
-    /// <summary>Siehe Klassendokumentation für den genauen Zeitpunkt.</summary>
+    /// <summary>
+    /// Alles, was zu Beginn des Zugs von <paramref name="unit"/> an Effekten
+    /// passiert: erst der Schadens-Tick auf <paramref name="unit"/> als ZIEL
+    /// (<see cref="TickDamageOverTime"/>), dann der Dauer-Tick ihrer eigenen
+    /// Effekte als ANWENDER (<see cref="TickDurationsOfSource"/>) - siehe
+    /// Klassendokumentation für den genauen Zeitpunkt und die Begründung.
+    /// </summary>
     public static void TickUnitEffects(GameState state, Unit unit, List<ReplayEntry>? replayEntries = null, int roundNumber = 0)
+    {
+        TickDamageOverTime(state, unit, replayEntries, roundNumber);
+        TickDurationsOfSource(state, unit, replayEntries, roundNumber);
+    }
+
+    /// <summary>
+    /// SCHADENS-TICK: wendet den Schaden über Zeit aller Effekte an, die auf
+    /// <paramref name="target"/> liegen (Zugbeginn des ZIELS, siehe
+    /// Klassendokumentation). Berührt die Restdauer bewusst NICHT - die zählt
+    /// beim Anwender (<see cref="TickDurationsOfSource"/>). Wo der Schaden
+    /// entsteht, hat sich dadurch nicht geändert: weiterhin beim Ziel.
+    /// </summary>
+    public static void TickDamageOverTime(GameState state, Unit target, List<ReplayEntry>? replayEntries = null, int roundNumber = 0)
     {
         // Kopie der Liste: während des Tickens (Schaden -> ggf. Niederlage
         // -> Aufräumung) können Einträge aus der Originalliste entfernt
         // werden, was eine laufende Enumeration ungültig machen würde.
-        var effects = state.GetEffectsOnUnit(unit.Id).ToList();
+        var effects = state.GetEffectsOnUnit(target.Id).Where(e => e.DamagePerTick.HasValue).ToList();
 
         foreach (var effect in effects)
         {
-            if (unit.IsDefeated)
+            if (target.IsDefeated)
             {
                 break; // z.B. durch den Tick-Schaden eines vorherigen Effekts bereits besiegt
             }
 
             replayEntries?.Add(ReplayEntry.ForEffectTicked(roundNumber, effect.Name, effect.TargetUnitId, effect.TargetField));
 
-            if (effect.DamagePerTick is int tickDamage)
-            {
-                CombatSystem.ApplyDamageAndHandleDefeat(state, unit, tickDamage);
-            }
+            int tickDamage = effect.DamagePerTick!.Value;
+            CombatSystem.ApplyDamageAndHandleDefeat(state, target, tickDamage,
+                damageSource: state.Units.FirstOrDefault(u => u.Id == effect.SourceUnitId)); // nur für die Kampfbilanz
 
-            ExpireIfDone(state, effect, replayEntries, roundNumber);
+            // Abklingender Schaden über Zeit (Bachelorarbeit-Korrektur,
+            // Elementarmagier-Feuer, siehe EffectTemplate.DamagePerTickReductionPerTick):
+            // NACH dem soeben zugefügten Tick um den konfigurierten Betrag
+            // absenken, nach unten bei 0 begrenzt (nie negativer Schaden).
+            if (effect.DamagePerTickReductionPerTick is int reduction)
+            {
+                effect.SetDamagePerTick(Math.Max(0, tickDamage - reduction));
+            }
         }
     }
 
-    /// <summary>Siehe Klassendokumentation für den genauen Zeitpunkt.</summary>
-    public static void TickFieldEffects(GameState state, List<ReplayEntry>? replayEntries = null, int roundNumber = 0)
+    /// <summary>
+    /// DAUER-TICK: verringert die Restdauer JEDES Effekts mit begrenzter
+    /// Dauer, dessen Anwender <paramref name="source"/> ist (Zugbeginn des
+    /// ANWENDERS, siehe Klassendokumentation), und entfernt ihn bei 0 -
+    /// unabhängig vom Anker (Einheit/Feld) und davon, auf wie viele Einheiten
+    /// er wirkt. Effekte ohne Dauer (<see cref="ActiveEffect.RemainingDuration"/>
+    /// = null) bleiben unberührt.
+    ///
+    /// Zwei Effekt-Instanzen desselben Namens und Anwenders (z.B. die
+    /// gekoppelte Feldsperre + Selbstreduktion der Wand) enden über
+    /// <see cref="RemoveEffectAndLinkedCounterpart"/> gemeinsam - sobald die
+    /// erste abläuft, ist die zweite bereits entfernt und wird hier
+    /// übersprungen (statt ein zweites Mal getickt zu werden).
+    /// </summary>
+    public static void TickDurationsOfSource(GameState state, Unit source, List<ReplayEntry>? replayEntries = null, int roundNumber = 0)
     {
-        foreach (var effect in state.ActiveEffects.Where(e => e.AnchorType == EffectAnchorType.Field).ToList())
+        var effects = state.ActiveEffects
+            .Where(e => e.SourceUnitId == source.Id && e.RemainingDuration.HasValue)
+            .ToList();
+
+        foreach (var effect in effects)
         {
+            if (!state.ActiveEffects.Contains(effect))
+            {
+                continue; // bereits als gekoppelter Gegenpart eines soeben abgelaufenen Effekts entfernt
+            }
+
             replayEntries?.Add(ReplayEntry.ForEffectTicked(roundNumber, effect.Name, effect.TargetUnitId, effect.TargetField));
             ExpireIfDone(state, effect, replayEntries, roundNumber);
         }
@@ -220,6 +308,69 @@ public static class EffectSystem
     }
 
     /// <summary>
+    /// BEHEBUNG EINER REGELLÜCKE (Bachelorarbeit, Befund): Ein angehefteter
+    /// Held (Quelle eines Effekts mit <see cref="ActiveEffect.CausesSourceToFollowTarget"/>,
+    /// derzeit nur Huggers Umklammerung) ist für Gegner nicht angreifbar, kann
+    /// selbst nicht angreifen und löst sich nur aktiv. War er die LETZTE lebende
+    /// Einheit seines Teams, konnte die Partie deshalb nicht mehr enden - sie
+    /// stand bis zum Rundenlimit still (in der Stichprobe z.B. 71 von 82
+    /// Rundenlimit-Partien des aggressiven Schwellen-Agenten).
+    ///
+    /// REGEL: Ist ein angehefteter Held der letzte lebende Held seines Teams,
+    /// löst sich die Anheftung sofort (samt gekoppelter Instanz, siehe
+    /// <see cref="RemoveEffectAndLinkedCounterpart"/>) - danach ist er angreifbar
+    /// und kann angreifen. Ergänzend kann der letzte Held keine anheftende
+    /// Fähigkeit mehr einsetzen (siehe AbilitySystem), sonst entstünde das Patt
+    /// im nächsten Zug neu.
+    ///
+    /// ZEITPUNKT: aufgerufen nach JEDER Niederlage (CombatSystem.HandleDefeat),
+    /// also im selben Moment, in dem die vorletzte Einheit fällt - nicht erst zu
+    /// Beginn seines nächsten Zugs, sonst bliebe er bis dahin unangreifbar.
+    ///
+    /// KLONE zählen nicht als weitere Einheit - wie bei der Siegbedingung.
+    /// Ein Klon kann ohnehin nie die letzte weitere Einheit sein: er verschwindet
+    /// mit seinem Erzeuger (CombatSystem.DespawnCloneOfCreator).
+    ///
+    /// SYMMETRIE: geprüft wird jedes Team für sich, die Reihenfolge ist ohne
+    /// Einfluss (jedes Lösen betrifft nur die Effekte seines eigenen Helden).
+    /// Dass BEIDE Teams nur noch aus einem angehefteten Helden bestehen, ist
+    /// ohnehin nicht möglich: eine Anheftung endet mit dem Tod ihres Ziels, der
+    /// letzte angeheftete Held hängt also stets an einer lebenden gegnerischen
+    /// Einheit - und ein angehefteter Held kann selbst nicht angeheftet werden,
+    /// weil er für Gegner kein gültiges Ziel ist.
+    ///
+    /// NACHTRAG (Hugger-Überarbeitung): angeheftet darf der Hugger inzwischen
+    /// angreifen und wird dadurch eine Runde lang angreifbar. Die Regel bleibt
+    /// trotzdem nötig: ein angehefteter letzter Held, der NICHT angreift, wäre sonst
+    /// weiterhin dauerhaft unangreifbar.
+    ///
+    /// Die Anheftung im normalen Spielverlauf bleibt unverändert. Ein Replay-
+    /// Eintrag entsteht (wie beim übrigen Tod-Aufräumen) nicht.
+    /// </summary>
+    public static void ReleaseAttachmentsOfLastHeroes(GameState state)
+    {
+        foreach (var team in state.Units.Where(u => !u.IsDefeated).Select(u => u.Team).Distinct().ToList())
+        {
+            var heroes = state.Units.Where(u => !u.IsDefeated && !u.IsClone && u.Team == team).ToList();
+            if (heroes.Count != 1)
+            {
+                continue;
+            }
+
+            foreach (var attachment in state.ActiveEffects
+                .Where(e => e.CausesSourceToFollowTarget && e.SourceUnitId == heroes[0].Id)
+                .ToList())
+            {
+                RemoveEffectAndLinkedCounterpart(state, attachment, replayEntries: null, roundNumber: 0);
+            }
+        }
+    }
+
+    /// <summary>Ob <paramref name="unit"/> der letzte lebende Held (ohne Klone) seines Teams ist.</summary>
+    public static bool IsLastHeroOfTeam(Units.Unit unit, GameState state) =>
+        !unit.IsClone && !state.Units.Any(u => u.Id != unit.Id && !u.IsDefeated && !u.IsClone && u.Team == unit.Team);
+
+    /// <summary>
     /// Entfernt <paramref name="effect"/> und - falls vorhanden - seinen
     /// GEKOPPELTEN GEGENPART: eine andere aktive Instanz mit demselben Namen
     /// und derselben Quelle. Manche Fähigkeiten legen bewusst ZWEI separate
@@ -230,15 +381,17 @@ public static class EffectSystem
     ///     Bewegungsunfähigkeit endet").
     ///   - Hugger: die Anheftung auf dem Ziel + die eigene Schadensreduktion
     ///     auf dem Hugger selbst ("solange die Anheftung aktiv ist").
-    /// Da unit- und feld-verankerte Effekte an UNTERSCHIEDLICHEN Zeitpunkten
-    /// ticken (siehe Klassendokumentation) und Zieltod nur EINE der beiden
-    /// Instanzen direkt trifft, würde ein bloß gleicher Anfangs-Dauer-Wert
-    /// sonst leicht auseinanderlaufen bzw. die andere Instanz gar nicht erst
-    /// mit aufräumen. Diese EINE zentrale Stelle (aufgerufen sowohl bei
-    /// natürlichem Ablauf als auch beim Tod-Aufräumen) sorgt generisch dafür,
-    /// dass beide Instanzen immer gemeinsam enden - unabhängig davon, WARUM
-    /// die erste entfernt wurde, und ohne Held-spezifische Sonderprüfung an
-    /// mehreren Stellen im Code.
+    /// Seit die Dauer beider Instanzen am selben Anwender hängt (siehe
+    /// Klassendokumentation), zählen sie im selben Dauer-Tick herunter und
+    /// laufen ohnehin gleichzeitig ab - die Kopplung bleibt trotzdem
+    /// erforderlich, weil Zieltod, aktives Beenden (<see cref="ActiveEffect"/>
+    /// per CancelEffectName) oder ein einseitiges Auffrischen nur EINE der
+    /// beiden Instanzen direkt treffen und die andere sonst bestehen bliebe.
+    /// Diese EINE zentrale Stelle (aufgerufen sowohl bei natürlichem Ablauf
+    /// als auch beim Tod-Aufräumen) sorgt generisch dafür, dass beide
+    /// Instanzen immer gemeinsam enden - unabhängig davon, WARUM die erste
+    /// entfernt wurde, und ohne Held-spezifische Sonderprüfung an mehreren
+    /// Stellen im Code.
     /// </summary>
     public static void RemoveEffectAndLinkedCounterpart(GameState state, ActiveEffect effect, List<ReplayEntry>? replayEntries, int roundNumber)
     {

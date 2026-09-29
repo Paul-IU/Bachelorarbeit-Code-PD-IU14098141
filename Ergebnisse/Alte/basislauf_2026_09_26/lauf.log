@@ -1,0 +1,16 @@
+﻿Etiketten-Prüfung: an (jede Partie zusätzlich mit vertauschten Etiketten)
+Partien 257.040 / 257.040 (+ ebenso viele Prüfpartien) (100,0 %) | Paarungen 3.570 / 3.570 | vergangen 0:09:14 | Rest ca. 0:00:00 | ABGESCHLOSSEN   
+Gesamtlaufzeit: 554,4 s für 257040 Partien (2,16 ms/Partie im Schnitt).
+Etiketten-Prüfung: 257040 Partien geprüft, 0 Abweichung(en).
+Paarungs-Ergebnisse gespeichert:      Ergebnisse/basislauf_2026_09_26/basislauf_byactiontype_paarungen.csv (3570 Zeilen + Kopfzeile)
+Kompositions-Siegquoten gespeichert:  Ergebnisse/basislauf_2026_09_26/basislauf_byactiontype_kompositionen.csv (84 Zeilen + Kopfzeile)
+Helden-Siegquoten gespeichert:        Ergebnisse/basislauf_2026_09_26/basislauf_byactiontype_helden.csv (9 Zeilen + Kopfzeile)
+--- byactiontype
+Etiketten-Prüfung: an (jede Partie zusätzlich mit vertauschten Etiketten)
+Partien 257.040 / 257.040 (+ ebenso viele Prüfpartien) (100,0 %) | Paarungen 3.570 / 3.570 | vergangen 0:10:21 | Rest ca. 0:00:00 | ABGESCHLOSSEN   
+Gesamtlaufzeit: 621,2 s für 257040 Partien (2,42 ms/Partie im Schnitt).
+Etiketten-Prüfung: 257040 Partien geprüft, 0 Abweichung(en).
+Paarungs-Ergebnisse gespeichert:      Ergebnisse/basislauf_2026_09_26/basislauf_uniform_paarungen.csv (3570 Zeilen + Kopfzeile)
+Kompositions-Siegquoten gespeichert:  Ergebnisse/basislauf_2026_09_26/basislauf_uniform_kompositionen.csv (84 Zeilen + Kopfzeile)
+Helden-Siegquoten gespeichert:        Ergebnisse/basislauf_2026_09_26/basislauf_uniform_helden.csv (9 Zeilen + Kopfzeile)
+--- uniform

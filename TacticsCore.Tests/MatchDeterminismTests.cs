@@ -15,7 +15,7 @@ namespace TacticsCore.Tests;
 /// gleicher Seed + gleiche Ausgangslage ergeben exakt denselben
 /// Partieverlauf, unterschiedliche Seeds ergeben (mit an Sicherheit
 /// grenzender Wahrscheinlichkeit) unterschiedliche Verläufe. Verwendet
-/// bewusst <see cref="RandomAgent"/> auf beiden Seiten, da dort die
+/// bewusst <see cref="RandomAgentByActionType"/> auf beiden Seiten, da dort die
 /// einzige nennenswerte Zufallsquelle innerhalb eines Zugs entsteht.
 /// </summary>
 public class MatchDeterminismTests
@@ -56,8 +56,8 @@ public class MatchDeterminismTests
     {
         var board = new GameBoard();
 
-        var result1 = new MatchController(BuildFixedLineup(board), new RandomAgent(), new RandomAgent(), seed: 12345, recordReplay: true).Run();
-        var result2 = new MatchController(BuildFixedLineup(board), new RandomAgent(), new RandomAgent(), seed: 12345, recordReplay: true).Run();
+        var result1 = new MatchController(BuildFixedLineup(board), new RandomAgentByActionType(), new RandomAgentByActionType(), seed: 12345, recordReplay: true).Run();
+        var result2 = new MatchController(BuildFixedLineup(board), new RandomAgentByActionType(), new RandomAgentByActionType(), seed: 12345, recordReplay: true).Run();
 
         Assert.Equal(result1.Winner, result2.Winner);
         Assert.Equal(result1.EndReason, result2.EndReason);
@@ -82,7 +82,7 @@ public class MatchDeterminismTests
         var board = new GameBoard();
 
         var replays = Enumerable.Range(0, 3)
-            .Select(_ => new MatchController(BuildFixedLineup(board), new RandomAgent(), new RandomAgent(), seed: 777, recordReplay: true).Run().Replay!.Entries)
+            .Select(_ => new MatchController(BuildFixedLineup(board), new RandomAgentByActionType(), new RandomAgentByActionType(), seed: 777, recordReplay: true).Run().Replay!.Entries)
             .ToList();
 
         Assert.Equal(replays[0], replays[1]);
@@ -97,7 +97,7 @@ public class MatchDeterminismTests
 
         for (int seed = 0; seed < 20; seed++)
         {
-            var controller = new MatchController(BuildFixedLineup(board), new RandomAgent(), new RandomAgent(), seed, recordReplay: true);
+            var controller = new MatchController(BuildFixedLineup(board), new RandomAgentByActionType(), new RandomAgentByActionType(), seed, recordReplay: true);
             results.Add(controller.Run());
         }
 

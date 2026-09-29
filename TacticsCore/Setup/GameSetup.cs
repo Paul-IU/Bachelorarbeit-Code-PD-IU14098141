@@ -43,14 +43,29 @@ public sealed record GameSetup(
     /// Spiegelung) auch keinerlei Rücksicht auf Sortierreihenfolgen o.ä.
     /// nehmen muss.
     ///
-    /// Nutzen: (a) Beweis-Grundlage für die Plausibilitätsprüfung "identische
-    /// Komposition auf beiden Seiten -&gt; exakt 50% Siegquote" (siehe
-    /// <see cref="Batch.BatchSimulationRunner"/>, Option
-    /// "AntitheticPairing"), (b) allgemein als Varianzreduktions-Technik
-    /// ("antithetische Paare") für BELIEBIGE Paarungen: pro Partie wird mit
-    /// demselben Seed zusätzlich die teamvertauschte Partie gespielt, was
-    /// die Ergebnisse über viele Paarungen hinweg schneller konvergieren
-    /// lässt, ohne die Reproduzierbarkeit zu gefährden.
+    /// WAS DAS BEWEIST UND WAS NICHT (Bachelorarbeit-Klarstellung): die
+    /// vertauschte Partie ist physisch eine exakte DUBLETTE der ursprünglichen
+    /// (dieselben Einheiten auf denselben Feldern, derselbe Seed, dieselbe
+    /// beginnende Seite - nur die Etiketten und Ids sind getauscht). Kommen
+    /// beide Läufe zu spiegelbildlichen Ergebnissen, ist das der Nachweis,
+    /// dass das Regelwerk NAMENSUNABHÄNGIG ist: nichts im Spielablauf hängt
+    /// vom Team-Etikett oder vom Id-Bereich ab. So wurde ein Fehler in der
+    /// Sortierung der Fähigkeitsoptionen gefunden (siehe
+    /// <see cref="Abilities.AbilitySystem.GetLegalAbilityUses"/>).
+    ///
+    /// Daraus folgt: (a) bei einer SPIEGELPAARUNG (identische Komposition auf
+    /// beiden Seiten) gewinnen beide Etiketten exakt gleich oft - eine
+    /// Konsequenz der Namensunabhängigkeit, KEINE Aussage darüber, ob die
+    /// Aufstellung auf Blüte A gegen dieselbe Komposition auf Blüte B im
+    /// Mittel 50% erreicht (das ist nur statistisch prüfbar). (b) bei einer
+    /// Paarung VERSCHIEDENER Kompositionen ist die Paarbildung KEINE
+    /// Varianzreduktion, sondern degeneriert: jede Partie zählt einmal für
+    /// jedes Etikett, das Ergebnis ist IMMER exakt 50:50 (gemessen: ohne
+    /// Paarbildung 58:14, mit 72:72) und verliert seine Aussage. Sie ist
+    /// deshalb nur für Spiegelpaarungen bzw. als reiner Namensunabhängigkeits-
+    /// test sinnvoll. Die 72 Ausgangslagen einer Paarung sind unter dem
+    /// Teamtausch NICHT abgeschlossen (Team A steht immer auf Blüte A, Team B
+    /// auf Blüte B) - keine Ausgangslage ist ihr eigenes Gegenstück.
     /// </summary>
     public GameSetup WithSwappedTeams() =>
         new(TeamBUnits, TeamAUnits, StartingTeam == Team.TeamA ? Team.TeamB : Team.TeamA);

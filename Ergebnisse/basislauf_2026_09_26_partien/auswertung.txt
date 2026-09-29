@@ -1,0 +1,89 @@
+
+=== byactiontype ===
+Partien 257040, Partiedauer 26,92 Runden, Rundenlimit 10,67 % (27432)
+  Aufloesung am Rundenlimit: a) mehr Helden 13430 (49,0 %), b) mehr Rest-HP 13957 (50,9 %), c) unentschieden 45 (0,2 %)
+je Heldenzug: Bewegungen 0,895, Angriffe 0,381, Faehigkeiten 0,433
+Pruefung Partiedatei gegen Paarungsdatei: keine Abweichung
+  paarungen: bytegleich zum Lauf ohne Partieexport
+  kompositionen: bytegleich zum Lauf ohne Partieexport
+  helden (bisherige 21 Spalten): gleich zum Lauf ohne Partieexport
+Held             Siegquote  Rang  Limit %     a)     b)     c)   Faehigkeit je Partie mit Held
+elementarmagier      63,31     1      8,1   3801   5290      0   Elementarschlag: 2,288
+elfe                 60,29     2     10,9   5680   6598      0   Heilung: 13,125
+berserker            56,87     3      8,6   4052   5626      2   Blutrausch (passiv): 0,000
+illusionist          55,96     4     10,6   5990   5945      2   Trugbild: 5,389
+wand                 52,96     5     11,8   6544   6747      0   Mauer: 9,245
+bogenschuetze        47,69     6      9,2   4767   5623      0   Aufladen: 5,371
+schildtraeger        47,23     7     11,1   6105   6377      2   Schildwall: 8,687
+musiker              37,45     8      9,7   5177   5759      0   Lied: 5,126
+hugger               28,23     9      9,4   5430   5215      2   Umklammerung: 9,736
+Tank-Rangfolge: illusionist 55,96 > wand 52,96 > schildtraeger 47,23
+
+=== uniform ===
+Partien 257040, Partiedauer 29,47 Runden, Rundenlimit 15,41 % (39600)
+  Aufloesung am Rundenlimit: a) mehr Helden 20560 (51,9 %), b) mehr Rest-HP 18986 (47,9 %), c) unentschieden 54 (0,1 %)
+je Heldenzug: Bewegungen 0,916, Angriffe 0,350, Faehigkeiten 0,450
+Pruefung Partiedatei gegen Paarungsdatei: keine Abweichung
+  paarungen: bytegleich zum Lauf ohne Partieexport
+  kompositionen: bytegleich zum Lauf ohne Partieexport
+  helden (bisherige 21 Spalten): gleich zum Lauf ohne Partieexport
+Held             Siegquote  Rang  Limit %     a)     b)     c)   Faehigkeit je Partie mit Held
+elementarmagier      62,66     1     11,5   5935   7094      0   Elementarschlag: 2,781
+elfe                 61,81     2     16,7   9929   8930      0   Heilung: 15,636
+wand                 55,19     3     16,8   9851   9054      0   Mauer: 9,742
+berserker            54,75     4     12,8   6812   7586      0   Blutrausch (passiv): 0,000
+bogenschuetze        53,43     5     12,8   6843   7657      0   Aufladen: 4,759
+illusionist          52,90     6     15,1   8841   8249      0   Trugbild: 5,707
+schildtraeger        51,25     7     16,1   9497   8695      0   Schildwall: 9,384
+musiker              34,99     8     13,9   8110   7624      0   Lied: 5,786
+hugger               23,04     9     13,1   8118   6695      0   Umklammerung: 13,518
+Tank-Rangfolge: wand 55,19 > illusionist 52,90 > schildtraeger 51,25
+
+=== aggressive ===
+Partien 257040, Partiedauer 11,34 Runden, Rundenlimit 0,64 % (1646)
+  Aufloesung am Rundenlimit: a) mehr Helden 1255 (76,2 %), b) mehr Rest-HP 377 (22,9 %), c) unentschieden 14 (0,9 %)
+je Heldenzug: Bewegungen 0,953, Angriffe 0,787, Faehigkeiten 0,092
+Pruefung Partiedatei gegen Paarungsdatei: keine Abweichung
+  paarungen: bytegleich zum Lauf ohne Partieexport
+  kompositionen: bytegleich zum Lauf ohne Partieexport
+  helden (bisherige 21 Spalten): gleich zum Lauf ohne Partieexport
+Held             Siegquote  Rang  Limit %     a)     b)     c)   Faehigkeit je Partie mit Held
+berserker            68,07     1      0,0      6      0      0   Blutrausch (passiv): 0,000
+wand                 63,35     2      0,6    542    184      0   Mauer: 0,453
+schildtraeger        55,40     3      0,6    539    182      0   Schildwall: 0,580
+bogenschuetze        54,67     4      0,4    430     78      0   Aufladen: 0,003
+illusionist          51,19     5      0,6    523    128      0   Trugbild: 0,563
+elfe                 44,27     6      0,6    588    103      0   Heilung: 0,486
+elementarmagier      42,15     7      1,0    983    170      0   Elementarschlag: 0,436
+musiker              41,47     8      0,7    588    187      0   Lied: 2,589
+hugger               29,41     9      0,5    475    126      0   Umklammerung: 0,039
+Tank-Rangfolge: wand 63,35 > schildtraeger 55,40 > illusionist 51,19
+
+=== defensive ===
+Partien 257040, Partiedauer 22,62 Runden, Rundenlimit 19,00 % (48829)
+  Aufloesung am Rundenlimit: a) mehr Helden 16050 (32,9 %), b) mehr Rest-HP 24162 (49,5 %), c) unentschieden 8617 (17,6 %)
+je Heldenzug: Bewegungen 0,787, Angriffe 0,508, Faehigkeiten 0,249
+Pruefung Partiedatei gegen Paarungsdatei: keine Abweichung
+Held             Siegquote  Rang  Limit %     a)     b)     c)   Faehigkeit je Partie mit Held
+elfe                 69,53     1     18,1  10683   5801   4012   Heilung: 11,319
+berserker            61,45     2     15,8   8506   5581   3723   Blutrausch (passiv): 0,000
+bogenschuetze        61,37     3     15,8   5044   9471   3337   Aufladen: 0,538
+wand                 48,17     4     16,3   6321   9055   2985   Mauer: 4,755
+elementarmagier      46,57     5     14,6   5934   7435   3113   Elementarschlag: 1,520
+schildtraeger        43,17     6     18,3   6461  10832   3337   Schildwall: 3,915
+musiker              40,91     7     14,2   5536   9568    987   Lied: 5,354
+illusionist          37,82     8     17,7   6871   9536   3625   Trugbild: 0,755
+hugger               28,28     9     17,4   6264   9807   3603   Umklammerung: 0,978
+Tank-Rangfolge: wand 48,17 > schildtraeger 43,17 > illusionist 37,82
+
+=== Rangfolgen und Rangkorrelationen ===
+  byactiontype : elementarmagier 63,3, elfe 60,3, berserker 56,9, illusionist 56,0, wand 53,0, bogenschuetze 47,7, schildtraeger 47,2, musiker 37,5, hugger 28,2
+  uniform      : elementarmagier 62,7, elfe 61,8, wand 55,2, berserker 54,8, bogenschuetze 53,4, illusionist 52,9, schildtraeger 51,2, musiker 35,0, hugger 23,0
+  aggressive   : berserker 68,1, wand 63,3, schildtraeger 55,4, bogenschuetze 54,7, illusionist 51,2, elfe 44,3, elementarmagier 42,1, musiker 41,5, hugger 29,4
+  defensive    : elfe 69,5, berserker 61,5, bogenschuetze 61,4, wand 48,2, elementarmagier 46,6, schildtraeger 43,2, musiker 40,9, illusionist 37,8, hugger 28,3
+  byactiontype / uniform: Spearman 0,917, Kendall 0,833
+  byactiontype / aggressive: Spearman 0,283, Kendall 0,167
+  byactiontype / defensive: Spearman 0,617, Kendall 0,500
+  uniform / aggressive: Spearman 0,333, Kendall 0,222
+  uniform / defensive: Spearman 0,733, Kendall 0,556
+  aggressive / defensive: Spearman 0,550, Kendall 0,444

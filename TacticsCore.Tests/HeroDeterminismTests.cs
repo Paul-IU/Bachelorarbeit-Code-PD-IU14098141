@@ -62,8 +62,8 @@ public class HeroDeterminismTests
     {
         var board = new GameBoard();
 
-        var result1 = new MatchController(BuildMixedLineup(board), new RandomAgent(), new RandomAgent(), seed: 2024, recordReplay: true).Run();
-        var result2 = new MatchController(BuildMixedLineup(board), new RandomAgent(), new RandomAgent(), seed: 2024, recordReplay: true).Run();
+        var result1 = new MatchController(BuildMixedLineup(board), new RandomAgentByActionType(), new RandomAgentByActionType(), seed: 2024, recordReplay: true).Run();
+        var result2 = new MatchController(BuildMixedLineup(board), new RandomAgentByActionType(), new RandomAgentByActionType(), seed: 2024, recordReplay: true).Run();
 
         Assert.Equal(result1.Winner, result2.Winner);
         Assert.Equal(result1.EndReason, result2.EndReason);
@@ -115,8 +115,30 @@ public class HeroDeterminismTests
     {
         var board = new GameBoard();
 
-        var result1 = new MatchController(BuildAllNineHeroesLineup(board), new RandomAgent(), new RandomAgent(), seed: 4711, recordReplay: true).Run();
-        var result2 = new MatchController(BuildAllNineHeroesLineup(board), new RandomAgent(), new RandomAgent(), seed: 4711, recordReplay: true).Run();
+        var result1 = new MatchController(BuildAllNineHeroesLineup(board), new RandomAgentByActionType(), new RandomAgentByActionType(), seed: 4711, recordReplay: true).Run();
+        var result2 = new MatchController(BuildAllNineHeroesLineup(board), new RandomAgentByActionType(), new RandomAgentByActionType(), seed: 4711, recordReplay: true).Run();
+
+        Assert.Equal(result1.Winner, result2.Winner);
+        Assert.Equal(result1.EndReason, result2.EndReason);
+        Assert.Equal(result1.RoundsPlayed, result2.RoundsPlayed);
+        Assert.Equal(result1.TeamAResult, result2.TeamAResult);
+        Assert.Equal(result1.TeamBResult, result2.TeamBResult);
+        Assert.Equal(result1.Replay!.Entries, result2.Replay!.Entries);
+    }
+
+    /// <summary>
+    /// Dieselbe Determinismus-Prüfung wie <see cref="GleicherSeedMitAllenNeunHelden_ErgibtExaktDenselbenPartieverlauf"/>,
+    /// hier mit <see cref="RandomAgentUniform"/> statt <see cref="RandomAgentByActionType"/> -
+    /// Bachelorarbeit-Erweiterung: BEIDE Agenten müssen bei gleichem Seed
+    /// unabhängig voneinander exakt denselben Partieverlauf liefern.
+    /// </summary>
+    [Fact]
+    public void GleicherSeedMitAllenNeunHeldenUndUniformAgent_ErgibtExaktDenselbenPartieverlauf()
+    {
+        var board = new GameBoard();
+
+        var result1 = new MatchController(BuildAllNineHeroesLineup(board), new RandomAgentUniform(), new RandomAgentUniform(), seed: 4711, recordReplay: true).Run();
+        var result2 = new MatchController(BuildAllNineHeroesLineup(board), new RandomAgentUniform(), new RandomAgentUniform(), seed: 4711, recordReplay: true).Run();
 
         Assert.Equal(result1.Winner, result2.Winner);
         Assert.Equal(result1.EndReason, result2.EndReason);

@@ -1,0 +1,4 @@
+﻿Gesamtlaufzeit: 299,6 s für 257040 Partien (1,17 ms/Partie im Schnitt).
+--- byactiontype (Stand: prozentuale Umklammerung, OHNE Behebung der Regelluecke)
+Gesamtlaufzeit: 355,6 s für 257040 Partien (1,38 ms/Partie im Schnitt).
+--- uniform (Stand: prozentuale Umklammerung, OHNE Behebung der Regelluecke)

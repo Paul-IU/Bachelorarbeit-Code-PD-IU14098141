@@ -23,8 +23,17 @@ public static class EffectiveStats
     public static int MovementRange(Unit unit, GameState state) =>
         Math.Max(0, unit.MovementRange + SumModifiers(unit, state).MovementRangeDelta);
 
-    public static int AttackDamage(Unit unit, GameState state) =>
-        Math.Max(0, unit.BaseAttackDamage + SumModifiers(unit, state).BaseAttackDamageDelta);
+    /// <summary>
+    /// Erst Grundschaden plus alle Deltas, dann der Produkt-Multiplikator
+    /// (<see cref="StatModifierSet.AttackDamageMultiplier"/>), gerundet mit
+    /// <c>Math.Round</c> (Bankers Rounding, wie im CombatSystem).
+    /// </summary>
+    public static int AttackDamage(Unit unit, GameState state)
+    {
+        var modifiers = SumModifiers(unit, state);
+        int additive = Math.Max(0, unit.BaseAttackDamage + modifiers.BaseAttackDamageDelta);
+        return modifiers.AttackDamageMultiplier == 1.0 ? additive : (int)Math.Round(additive * modifiers.AttackDamageMultiplier);
+    }
 
     public static int AttackRange(Unit unit, GameState state) =>
         Math.Max(0, unit.AttackRange + SumModifiers(unit, state).AttackRangeDelta);
@@ -50,9 +59,20 @@ public static class EffectiveStats
     /// im selben Team wie der Anwender, liefert diese Methode immer false,
     /// unabhängig von einem aktiven Effekt (Verbündete, z.B. eine heilende
     /// Elfe, sollen die Einheit weiterhin wählen können).
+    /// Ein aktiver Effekt mit <see cref="ActiveEffect.SuspendsTargetingProtection"/>
+    /// ("Exponiert", z.B. nach einem Angriff des angehefteten Huggers) hebt die
+    /// Sperre auf.
     /// </summary>
-    public static bool PreventsBeingTargetedBy(Unit target, Team chooserTeam, GameState state) =>
-        target.Team != chooserTeam && state.GetEffectsOnUnit(target.Id).Any(e => e.PreventsBeingTargetedByEnemies);
+    public static bool PreventsBeingTargetedBy(Unit target, Team chooserTeam, GameState state)
+    {
+        if (target.Team == chooserTeam)
+        {
+            return false;
+        }
+
+        var effects = state.GetEffectsOnUnit(target.Id);
+        return effects.Any(e => e.PreventsBeingTargetedByEnemies) && !effects.Any(e => e.SuspendsTargetingProtection);
+    }
 
     /// <summary>
     /// Ein evtl. vorhandener, einmalig zu verbrauchender Bonusschaden für

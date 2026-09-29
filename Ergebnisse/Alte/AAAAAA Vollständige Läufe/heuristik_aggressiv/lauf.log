@@ -1,0 +1,7 @@
+﻿Etiketten-Prüfung: an (jede Partie zusätzlich mit vertauschten Etiketten)
+Gesamtlaufzeit: 10438,9 s für 257040 Partien (40,61 ms/Partie im Schnitt).
+Etiketten-Prüfung: 257040 Partien geprüft, 0 Abweichung(en).
+Paarungs-Ergebnisse gespeichert:      Ergebnisse/heuristik_aggressiv/basislauf_aggressive_paarungen.csv (3570 Zeilen + Kopfzeile)
+Kompositions-Siegquoten gespeichert:  Ergebnisse/heuristik_aggressiv/basislauf_aggressive_kompositionen.csv (84 Zeilen + Kopfzeile)
+Helden-Siegquoten gespeichert:        Ergebnisse/heuristik_aggressiv/basislauf_aggressive_helden.csv (9 Zeilen + Kopfzeile)
+Neutrale Erwartung bei 9 Helden, Teamgröße 3: bereinigte Siegquote 50,00% (immer 50%), rohe/verzerrte Gesamt-Siegquote 60,28% (siehe 'SiegquoteGesamtVerzerrt' in Ergebnisse/heuristik_aggressiv/basislauf_aggressive_helden.csv).

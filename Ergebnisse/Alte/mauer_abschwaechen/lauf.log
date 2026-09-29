@@ -1,0 +1,14 @@
+﻿Etiketten-Prüfung: an (jede Partie zusätzlich mit vertauschten Etiketten)
+Gesamtlaufzeit: 668,3 s für 257040 Partien (2,60 ms/Partie im Schnitt).
+Etiketten-Prüfung: 257040 Partien geprüft, 0 Abweichung(en).
+Paarungs-Ergebnisse gespeichert:      Ergebnisse/mauer_abschwaechen/basislauf_byactiontype_paarungen.csv (3570 Zeilen + Kopfzeile)
+Kompositions-Siegquoten gespeichert:  Ergebnisse/mauer_abschwaechen/basislauf_byactiontype_kompositionen.csv (84 Zeilen + Kopfzeile)
+Helden-Siegquoten gespeichert:        Ergebnisse/mauer_abschwaechen/basislauf_byactiontype_helden.csv (9 Zeilen + Kopfzeile)
+--- byactiontype
+Etiketten-Prüfung: an (jede Partie zusätzlich mit vertauschten Etiketten)
+Gesamtlaufzeit: 771,5 s für 257040 Partien (3,00 ms/Partie im Schnitt).
+Etiketten-Prüfung: 257040 Partien geprüft, 0 Abweichung(en).
+Paarungs-Ergebnisse gespeichert:      Ergebnisse/mauer_abschwaechen/basislauf_uniform_paarungen.csv (3570 Zeilen + Kopfzeile)
+Kompositions-Siegquoten gespeichert:  Ergebnisse/mauer_abschwaechen/basislauf_uniform_kompositionen.csv (84 Zeilen + Kopfzeile)
+Helden-Siegquoten gespeichert:        Ergebnisse/mauer_abschwaechen/basislauf_uniform_helden.csv (9 Zeilen + Kopfzeile)
+--- uniform

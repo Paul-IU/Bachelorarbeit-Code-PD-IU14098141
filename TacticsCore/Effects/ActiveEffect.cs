@@ -37,19 +37,33 @@ public sealed class ActiveEffect
     public Guid SourceUnitId { get; }
     public EffectAnchorType AnchorType { get; }
     public Guid? TargetUnitId { get; }
-    public HexCoordinate? TargetField { get; }
+    public HexCoordinate? TargetField { get; private set; }
 
-    /// <summary>Restdauer in "eigenen Zügen"/Runden der betroffenen Einheit bzw. Feld-Runden; null = unbegrenzt (endet nur über Tod von Quelle/Ziel oder aktives Beenden).</summary>
+    /// <summary>
+    /// Restdauer in EIGENEN ZÜGEN DES ANWENDERS (<see cref="SourceUnitId"/>):
+    /// sie sinkt zu Beginn jedes Zugs des Anwenders um 1 (siehe
+    /// <see cref="EffectSystem.TickDurationsOfSource"/>), unabhängig davon, wie
+    /// viele Einheiten der Effekt betrifft und ob er an eine Einheit oder ein
+    /// Feld gebunden ist. Dauer 1 = wirkt bis zum Beginn des nächsten eigenen
+    /// Zugs des Anwenders. null = unbegrenzt (endet nur über Tod von
+    /// Quelle/Ziel oder aktives Beenden).
+    /// </summary>
     public int? RemainingDuration { get; private set; }
 
     public StackingRule Stacking { get; }
 
     public StatModifierSet? StatModifiers { get; }
-    public int? DamagePerTick { get; }
+    public int? DamagePerTick { get; private set; }
+
+    /// <summary>Siehe <see cref="EffectTemplate.DamagePerTickReductionPerTick"/>.</summary>
+    public int? DamagePerTickReductionPerTick { get; }
     public double? IncomingDamageMultiplier { get; }
     public bool PreventsMovement { get; }
     public Team? FieldLockAgainstTeam { get; }
     public bool RedirectsAttacksToSource { get; }
+
+    /// <summary>Siehe <see cref="EffectTemplate.ReflectsFractionOfRedirectedDamage"/>.</summary>
+    public double? ReflectsFractionOfRedirectedDamage { get; }
     public int? BonusDamageForNextAttack { get; private set; }
 
     /// <summary>
@@ -76,12 +90,24 @@ public sealed class ActiveEffect
     /// <summary>Siehe <see cref="EffectTemplate.PreventsBeingTargetedByEnemies"/>.</summary>
     public bool PreventsBeingTargetedByEnemies { get; }
 
+    /// <summary>Siehe <see cref="EffectTemplate.FieldFollowsSource"/>: nur bei feld-verankerten Effekten; das Feld wandert mit dem Anwender.</summary>
+    public bool FieldFollowsSource { get; }
+
+    /// <summary>Siehe <see cref="EffectTemplate.TargetingProtectionSuspendedByAttackRounds"/>.</summary>
+    public int? TargetingProtectionSuspendedByAttackRounds { get; }
+
+    /// <summary>Siehe <see cref="EffectTemplate.SuspendsTargetingProtection"/>.</summary>
+    public bool SuspendsTargetingProtection { get; }
+
     private ActiveEffect(
         string name, Guid sourceUnitId, EffectAnchorType anchorType, Guid? targetUnitId, HexCoordinate? targetField,
         int? duration, StackingRule stacking, StatModifierSet? statModifiers, int? damagePerTick,
+        int? damagePerTickReductionPerTick,
         double? incomingDamageMultiplier, bool preventsMovement, Team? fieldLockAgainstTeam,
-        bool redirectsAttacksToSource, int? bonusDamageForNextAttack, int? maximumAccumulatedBonusDamage,
-        bool causesSourceToFollowTarget, bool preventsAttacking, bool preventsBeingTargetedByEnemies)
+        bool redirectsAttacksToSource, double? reflectsFractionOfRedirectedDamage,
+        int? bonusDamageForNextAttack, int? maximumAccumulatedBonusDamage,
+        bool causesSourceToFollowTarget, bool preventsAttacking, bool preventsBeingTargetedByEnemies,
+        bool fieldFollowsSource = false, int? targetingProtectionSuspendedByAttackRounds = null, bool suspendsTargetingProtection = false)
     {
         Name = name;
         SourceUnitId = sourceUnitId;
@@ -92,44 +118,79 @@ public sealed class ActiveEffect
         Stacking = stacking;
         StatModifiers = statModifiers;
         DamagePerTick = damagePerTick;
+        DamagePerTickReductionPerTick = damagePerTickReductionPerTick;
         IncomingDamageMultiplier = incomingDamageMultiplier;
         PreventsMovement = preventsMovement;
         FieldLockAgainstTeam = fieldLockAgainstTeam;
         RedirectsAttacksToSource = redirectsAttacksToSource;
+        ReflectsFractionOfRedirectedDamage = reflectsFractionOfRedirectedDamage;
         BonusDamageForNextAttack = bonusDamageForNextAttack;
         MaximumAccumulatedBonusDamage = maximumAccumulatedBonusDamage;
         CausesSourceToFollowTarget = causesSourceToFollowTarget;
         PreventsAttacking = preventsAttacking;
         PreventsBeingTargetedByEnemies = preventsBeingTargetedByEnemies;
+        FieldFollowsSource = fieldFollowsSource;
+        TargetingProtectionSuspendedByAttackRounds = targetingProtectionSuspendedByAttackRounds;
+        SuspendsTargetingProtection = suspendsTargetingProtection;
     }
 
     /// <summary>Erzeugt einen an eine Einheit gebundenen Effekt (Buff/Debuff, DoT, Bewegungssperre, Anheftung, Angriffsbonus, ...).</summary>
     public static ActiveEffect OnUnit(Unit source, Unit target, EffectTemplate template) => new(
         template.Name, source.Id, EffectAnchorType.Unit, target.Id, null,
         template.Duration, template.Stacking, template.StatModifiers, template.DamagePerTick,
+        template.DamagePerTickReductionPerTick,
         template.IncomingDamageMultiplier, template.PreventsMovement, fieldLockAgainstTeam: null,
-        redirectsAttacksToSource: false, template.BonusDamageForNextAttack, template.MaximumAccumulatedBonusDamage,
+        redirectsAttacksToSource: false, reflectsFractionOfRedirectedDamage: null,
+        template.BonusDamageForNextAttack, template.MaximumAccumulatedBonusDamage,
         causesSourceToFollowTarget: template.CausesSourceToFollowTarget && target.Id != source.Id,
         preventsAttacking: template.PreventsAttacking,
-        preventsBeingTargetedByEnemies: template.PreventsBeingTargetedByEnemies);
+        preventsBeingTargetedByEnemies: template.PreventsBeingTargetedByEnemies,
+        targetingProtectionSuspendedByAttackRounds: template.TargetingProtectionSuspendedByAttackRounds,
+        suspendsTargetingProtection: template.SuspendsTargetingProtection);
 
     /// <summary>Erzeugt einen an ein Feld gebundenen Effekt (Flächen-Schadensreduktion, Feldsperre, Angriffs-Umleitung).</summary>
     public static ActiveEffect OnField(Unit source, HexCoordinate field, EffectTemplate template) => new(
         template.Name, source.Id, EffectAnchorType.Field, null, field,
         template.Duration, template.Stacking, template.StatModifiers, template.DamagePerTick,
+        template.DamagePerTickReductionPerTick,
         template.IncomingDamageMultiplier, preventsMovement: false,
         fieldLockAgainstTeam: template.LocksFieldForEnemies ? OppositeTeamOf(source.Team) : null,
         redirectsAttacksToSource: template.RedirectsAttacksToSource,
+        reflectsFractionOfRedirectedDamage: template.ReflectsFractionOfRedirectedDamage,
         bonusDamageForNextAttack: template.BonusDamageForNextAttack,
         maximumAccumulatedBonusDamage: template.MaximumAccumulatedBonusDamage,
         causesSourceToFollowTarget: false,
         preventsAttacking: false,
-        preventsBeingTargetedByEnemies: false);
+        preventsBeingTargetedByEnemies: false,
+        fieldFollowsSource: template.FieldFollowsSource);
 
     private static Team OppositeTeamOf(Team team) => team == Team.TeamA ? Team.TeamB : Team.TeamA;
 
+    /// <summary>Unabhängige Kopie mit identischem Zustand - ausschließlich für <see cref="TacticsCore.GameState.CloneForSimulation"/>.</summary>
+    internal ActiveEffect CopyForSimulation() => new(
+        Name, SourceUnitId, AnchorType, TargetUnitId, TargetField,
+        RemainingDuration, Stacking, StatModifiers, DamagePerTick,
+        DamagePerTickReductionPerTick,
+        IncomingDamageMultiplier, PreventsMovement, FieldLockAgainstTeam,
+        RedirectsAttacksToSource, ReflectsFractionOfRedirectedDamage,
+        BonusDamageForNextAttack, MaximumAccumulatedBonusDamage,
+        CausesSourceToFollowTarget, PreventsAttacking, PreventsBeingTargetedByEnemies, FieldFollowsSource,
+        TargetingProtectionSuspendedByAttackRounds, SuspendsTargetingProtection);
+
+    /// <summary>Ausschließlich für <see cref="TacticsCore.GameState.MoveUnit"/> gedacht (siehe <see cref="FieldFollowsSource"/>).</summary>
+    internal void SetTargetField(HexCoordinate field) => TargetField = field;
+
     /// <summary>Ausschließlich für <see cref="EffectSystem"/> gedacht (Ticken/Ablaufen/Auffrischen der Dauer).</summary>
     internal void SetRemainingDuration(int? value) => RemainingDuration = value;
+
+    /// <summary>
+    /// Ausschließlich für <see cref="EffectSystem"/> gedacht: setzt den
+    /// aktuellen Tick-Schaden, wenn dieser gemäß
+    /// <see cref="DamagePerTickReductionPerTick"/> nach jedem Tick abklingt
+    /// (siehe Elementarmagier-Feuer) bzw. bei einem Auffrischen der Dauer
+    /// wieder auf den vollen Ausgangswert zurückgesetzt wird.
+    /// </summary>
+    internal void SetDamagePerTick(int? value) => DamagePerTick = value;
 
     /// <summary>
     /// Ausschließlich für <see cref="EffectSystem"/> gedacht: setzt den

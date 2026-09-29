@@ -1,0 +1,274 @@
+--- 17:46:44
+Laufzeit aggressive: 240 Partien in 9,7 s (40,3 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 22547 (93,9 je Partie), 4,736 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 2,88 h
+  Rundenlimit 2,1 %, Runden im Schnitt 12,17
+  je Heldenzug: Bewegungen 0,916, Angriffe 0,769, Faehigkeiten 0,072
+  Berserker: 0 Angriffe bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Aufladen/Laden: 0 bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Faehigkeit:elementarschlag/erde: 38 (0,16 je Partie)
+  Faehigkeit:elementarschlag/feuer: 12 (0,05 je Partie)
+  Faehigkeit:heilung: 131 (0,55 je Partie)
+  Faehigkeit:lied/kampflied: 375 (1,56 je Partie)
+  Faehigkeit:lied/marschlied: 28 (0,12 je Partie)
+  Faehigkeit:mauer: 80 (0,33 je Partie)
+  Faehigkeit:schildwall: 68 (0,28 je Partie)
+  Faehigkeit:trugbild: 88 (0,37 je Partie)
+  Faehigkeit:umklammerung/greifen: 1 (0,00 je Partie)
+  Faehigkeit:umklammerung/loesen: 1 (0,00 je Partie)
+--- 17:47:14
+Laufzeit neutral: 240 Partien in 28,0 s (116,5 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 40389 (168,3 je Partie), 5,015 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 8,32 h
+  Rundenlimit 7,5 %, Runden im Schnitt 18,13
+  je Heldenzug: Bewegungen 0,955, Angriffe 0,646, Faehigkeiten 0,264
+  Berserker: 0 Angriffe bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Aufladen/Laden: 0 bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Faehigkeit:aufladen/abbrechen: 6 (0,03 je Partie)
+  Faehigkeit:aufladen/laden: 12 (0,05 je Partie)
+  Faehigkeit:elementarschlag/erde: 56 (0,23 je Partie)
+  Faehigkeit:elementarschlag/feuer: 35 (0,15 je Partie)
+  Faehigkeit:heilung: 3419 (14,25 je Partie)
+  Faehigkeit:lied/kampflied: 865 (3,60 je Partie)
+  Faehigkeit:lied/marschlied: 34 (0,14 je Partie)
+  Faehigkeit:mauer: 460 (1,92 je Partie)
+  Faehigkeit:schildwall: 262 (1,09 je Partie)
+  Faehigkeit:trugbild: 117 (0,49 je Partie)
+  Faehigkeit:umklammerung/greifen: 21 (0,09 je Partie)
+  Faehigkeit:umklammerung/loesen: 18 (0,07 je Partie)
+--- 17:50:36
+Laufzeit k3: 240 Partien in 199,9 s (833,0 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 45080 (187,8 je Partie), 34,568 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 59,48 h
+  Rundenlimit 13,3 %, Runden im Schnitt 20,40
+  je Heldenzug: Bewegungen 0,949, Angriffe 0,604, Faehigkeiten 0,279
+  Berserker: 0 Angriffe bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Aufladen/Laden: 0 bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Faehigkeit:aufladen/laden: 32 (0,13 je Partie)
+  Faehigkeit:elementarschlag/erde: 53 (0,22 je Partie)
+  Faehigkeit:elementarschlag/feuer: 52 (0,22 je Partie)
+  Faehigkeit:heilung: 3899 (16,25 je Partie)
+  Faehigkeit:lied/kampflied: 839 (3,50 je Partie)
+  Faehigkeit:lied/marschlied: 31 (0,13 je Partie)
+  Faehigkeit:mauer: 881 (3,67 je Partie)
+  Faehigkeit:schildwall: 259 (1,08 je Partie)
+  Faehigkeit:trugbild: 125 (0,52 je Partie)
+  Faehigkeit:umklammerung/greifen: 64 (0,27 je Partie)
+  Faehigkeit:umklammerung/loesen: 21 (0,09 je Partie)
+--- 17:55:10
+Laufzeit k5: 240 Partien in 272,6 s (1135,6 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 43598 (181,7 je Partie), 54,005 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 81,08 h
+  Rundenlimit 12,5 %, Runden im Schnitt 19,41
+  je Heldenzug: Bewegungen 0,940, Angriffe 0,601, Faehigkeiten 0,283
+  Berserker: 0 Angriffe bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Aufladen/Laden: 0 bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Faehigkeit:aufladen/laden: 34 (0,14 je Partie)
+  Faehigkeit:elementarschlag/erde: 62 (0,26 je Partie)
+  Faehigkeit:elementarschlag/feuer: 70 (0,29 je Partie)
+  Faehigkeit:heilung: 3636 (15,15 je Partie)
+  Faehigkeit:lied/kampflied: 783 (3,26 je Partie)
+  Faehigkeit:lied/marschlied: 34 (0,14 je Partie)
+  Faehigkeit:mauer: 897 (3,74 je Partie)
+  Faehigkeit:schildwall: 287 (1,20 je Partie)
+  Faehigkeit:trugbild: 133 (0,55 je Partie)
+  Faehigkeit:umklammerung/greifen: 115 (0,48 je Partie)
+  Faehigkeit:umklammerung/loesen: 46 (0,19 je Partie)
+--- 18:02:05
+Laufzeit k10: 240 Partien in 413,3 s (1722,0 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 43454 (181,1 je Partie), 84,630 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 122,95 h
+  Rundenlimit 12,1 %, Runden im Schnitt 19,28
+  je Heldenzug: Bewegungen 0,933, Angriffe 0,604, Faehigkeiten 0,285
+  Berserker: 0 Angriffe bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Aufladen/Laden: 0 bei 0 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Faehigkeit:aufladen/laden: 30 (0,12 je Partie)
+  Faehigkeit:elementarschlag/erde: 62 (0,26 je Partie)
+  Faehigkeit:elementarschlag/feuer: 84 (0,35 je Partie)
+  Faehigkeit:heilung: 3644 (15,18 je Partie)
+  Faehigkeit:lied/kampflied: 775 (3,23 je Partie)
+  Faehigkeit:lied/marschlied: 38 (0,16 je Partie)
+  Faehigkeit:mauer: 891 (3,71 je Partie)
+  Faehigkeit:schildwall: 299 (1,25 je Partie)
+  Faehigkeit:trugbild: 136 (0,57 je Partie)
+  Faehigkeit:umklammerung/greifen: 112 (0,47 je Partie)
+  Faehigkeit:umklammerung/loesen: 40 (0,17 je Partie)
+--- 18:02:17
+Verhalten aggressive: 240 Partien in 10,2 s (42,4 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 22547 (93,9 je Partie), 4,653 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 3,03 h
+  Rundenlimit 2,1 %, Runden im Schnitt 12,17
+  je Heldenzug: Bewegungen 0,916, Angriffe 0,769, Faehigkeiten 0,072
+  Berserker: 502 Angriffe bei 2607 Zuegen mit Gelegenheit (19,3 %), 2,09 je Partie
+  Aufladen/Laden: 0 bei 716 Zuegen mit Gelegenheit (0,0 %), 0,00 je Partie
+  Faehigkeit:elementarschlag/erde: 38 (0,16 je Partie)
+  Faehigkeit:elementarschlag/feuer: 12 (0,05 je Partie)
+  Faehigkeit:heilung: 131 (0,55 je Partie)
+  Faehigkeit:lied/kampflied: 375 (1,56 je Partie)
+  Faehigkeit:lied/marschlied: 28 (0,12 je Partie)
+  Faehigkeit:mauer: 80 (0,33 je Partie)
+  Faehigkeit:schildwall: 68 (0,28 je Partie)
+  Faehigkeit:trugbild: 88 (0,37 je Partie)
+  Faehigkeit:umklammerung/greifen: 1 (0,00 je Partie)
+  Faehigkeit:umklammerung/loesen: 1 (0,00 je Partie)
+--- 18:02:48
+Verhalten neutral: 240 Partien in 29,0 s (121,0 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 40389 (168,3 je Partie), 4,999 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 8,64 h
+  Rundenlimit 7,5 %, Runden im Schnitt 18,13
+  je Heldenzug: Bewegungen 0,955, Angriffe 0,646, Faehigkeiten 0,264
+  Berserker: 538 Angriffe bei 4438 Zuegen mit Gelegenheit (12,1 %), 2,24 je Partie
+  Aufladen/Laden: 12 bei 1025 Zuegen mit Gelegenheit (1,2 %), 0,05 je Partie
+  Faehigkeit:aufladen/abbrechen: 6 (0,03 je Partie)
+  Faehigkeit:aufladen/laden: 12 (0,05 je Partie)
+  Faehigkeit:elementarschlag/erde: 56 (0,23 je Partie)
+  Faehigkeit:elementarschlag/feuer: 35 (0,15 je Partie)
+  Faehigkeit:heilung: 3419 (14,25 je Partie)
+  Faehigkeit:lied/kampflied: 865 (3,60 je Partie)
+  Faehigkeit:lied/marschlied: 34 (0,14 je Partie)
+  Faehigkeit:mauer: 460 (1,92 je Partie)
+  Faehigkeit:schildwall: 262 (1,09 je Partie)
+  Faehigkeit:trugbild: 117 (0,49 je Partie)
+  Faehigkeit:umklammerung/greifen: 21 (0,09 je Partie)
+  Faehigkeit:umklammerung/loesen: 18 (0,07 je Partie)
+--- 18:07:52
+Verhalten k5-vs-neutral: 240 Partien in 301,7 s (1257,3 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 43598 (181,7 je Partie), 54,105 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 89,77 h
+  Rundenlimit 12,5 %, Runden im Schnitt 19,41
+  je Heldenzug: Bewegungen 0,940, Angriffe 0,601, Faehigkeiten 0,283
+  Berserker: 539 Angriffe bei 5997 Zuegen mit Gelegenheit (9,0 %), 2,25 je Partie
+  Aufladen/Laden: 34 bei 1092 Zuegen mit Gelegenheit (3,1 %), 0,14 je Partie
+  Faehigkeit:aufladen/laden: 34 (0,14 je Partie)
+  Faehigkeit:elementarschlag/erde: 62 (0,26 je Partie)
+  Faehigkeit:elementarschlag/feuer: 70 (0,29 je Partie)
+  Faehigkeit:heilung: 3636 (15,15 je Partie)
+  Faehigkeit:lied/kampflied: 783 (3,26 je Partie)
+  Faehigkeit:lied/marschlied: 34 (0,14 je Partie)
+  Faehigkeit:mauer: 897 (3,74 je Partie)
+  Faehigkeit:schildwall: 287 (1,20 je Partie)
+  Faehigkeit:trugbild: 133 (0,55 je Partie)
+  Faehigkeit:umklammerung/greifen: 115 (0,48 je Partie)
+  Faehigkeit:umklammerung/loesen: 46 (0,19 je Partie)
+  Abweichung:neutral-einstufig: 2356 (5,4 % der Entscheidungen)
+  Abweichung:neutral-einstufig:BerserkerNurDort: 674 (1,5 % der Entscheidungen)
+  Abweichung:neutral-einstufig:BerserkerNurHier: 13 (0,0 % der Entscheidungen)
+  Abweichung:neutral-einstufig:LadenNurHier: 34 (0,1 % der Entscheidungen)
+Akteur elementarmagier TeamB Budget TurnBudget { CanMove = False, CanAct = True, HasAnyBudget = True }; Runde 5; gewaehlt Attack 00000003-0000-0000-0000-000000000000, einstufig Ability TacticsCore.Abilities.AbilityTarget+UnitTarget feuer
+  Reihenfolge: berserker, elementarmagier, berserker
+  berserker TeamA (-1,1) HP 300/400 Id 00000003-0000-0000-0000-000000000000
+  berserker TeamB (-1,1) HP 280/400 Id 00000065-0000-0000-0000-000000000000
+  elementarmagier TeamB (-1,1) HP 80/320 Id 00000067-0000-0000-0000-000000000000
+
+Akteur elementarmagier TeamB Budget TurnBudget { CanMove = False, CanAct = True, HasAnyBudget = True }; Runde 7; gewaehlt Attack 00000001-0000-0000-0000-000000000000, einstufig Ability TacticsCore.Abilities.AbilityTarget+UnitTarget feuer
+  Reihenfolge: berserker, elementarmagier, illusionist, klon
+  berserker TeamA (-1,1) HP 300/400 Id 00000001-0000-0000-0000-000000000000
+  elementarmagier TeamB (-1,1) HP 38/320 Id 00000066-0000-0000-0000-000000000000
+  illusionist TeamB (-1,1) HP 276/750 Id 00000067-0000-0000-0000-000000000000
+  klon TeamB (-1,4) HP 10/10 Id a5a5a5c2-a5a5-a5a5-a5a5-a5a5a5a5a5a5
+
+Akteur elementarmagier TeamB Budget TurnBudget { CanMove = False, CanAct = True, HasAnyBudget = True }; Runde 13; gewaehlt Attack 00000003-0000-0000-0000-000000000000, einstufig Ability TacticsCore.Abilities.AbilityTarget+UnitTarget feuer
+  Reihenfolge: berserker, elementarmagier, elfe, musiker
+  berserker TeamA (-1,1) HP 170/400 Id 00000003-0000-0000-0000-000000000000
+  elementarmagier TeamB (-1,1) HP 70/320 Id 00000065-0000-0000-0000-000000000000
+  elfe TeamB (-1,1) HP 310/450 Id 00000066-0000-0000-0000-000000000000
+  musiker TeamB (-1,1) HP 200/480 Id 00000067-0000-0000-0000-000000000000
+
+--- 18:19:14
+Verhalten k10-vs-k5: 240 Partien in 678,6 s (2827,6 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 43454 (181,1 je Partie), 84,124 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 201,89 h
+  Rundenlimit 12,1 %, Runden im Schnitt 19,28
+  je Heldenzug: Bewegungen 0,933, Angriffe 0,604, Faehigkeiten 0,285
+  Berserker: 539 Angriffe bei 6231 Zuegen mit Gelegenheit (8,7 %), 2,25 je Partie
+  Aufladen/Laden: 30 bei 1166 Zuegen mit Gelegenheit (2,6 %), 0,12 je Partie
+  Faehigkeit:aufladen/laden: 30 (0,12 je Partie)
+  Faehigkeit:elementarschlag/erde: 62 (0,26 je Partie)
+  Faehigkeit:elementarschlag/feuer: 84 (0,35 je Partie)
+  Faehigkeit:heilung: 3644 (15,18 je Partie)
+  Faehigkeit:lied/kampflied: 775 (3,23 je Partie)
+  Faehigkeit:lied/marschlied: 38 (0,16 je Partie)
+  Faehigkeit:mauer: 891 (3,71 je Partie)
+  Faehigkeit:schildwall: 299 (1,25 je Partie)
+  Faehigkeit:trugbild: 136 (0,57 je Partie)
+  Faehigkeit:umklammerung/greifen: 112 (0,47 je Partie)
+  Faehigkeit:umklammerung/loesen: 40 (0,17 je Partie)
+  Abweichung:k5: 529 (1,2 % der Entscheidungen)
+  Abweichung:k5:BerserkerNurHier: 5 (0,0 % der Entscheidungen)
+Akteur elementarmagier TeamB Budget TurnBudget { CanMove = True, CanAct = True, HasAnyBudget = True }; Runde 4; gewaehlt Attack 00000001-0000-0000-0000-000000000000, einstufig Move (-1,3)
+  Reihenfolge: bogenschuetze, elementarmagier, elementarmagier, berserker, berserker
+  berserker TeamA (-1,2) HP 140/400 Id 00000001-0000-0000-0000-000000000000
+  elementarmagier TeamA (-1,1) HP 240/320 Id 00000002-0000-0000-0000-000000000000
+  bogenschuetze TeamA (-1,1) HP 160/280 Id 00000003-0000-0000-0000-000000000000
+  berserker TeamB (-1,2) HP 280/400 Id 00000065-0000-0000-0000-000000000000
+  elementarmagier TeamB (-1,4) HP 200/320 Id 00000067-0000-0000-0000-000000000000
+  Effekt Verbrennung von 00000067-0000-0000-0000-000000000000 auf 00000001-0000-0000-0000-000000000000 Rest 2
+
+Akteur berserker TeamB Budget TurnBudget { CanMove = True, CanAct = True, HasAnyBudget = True }; Runde 6; gewaehlt Attack 00000001-0000-0000-0000-000000000000, einstufig Move (-1,1)
+  Reihenfolge: berserker, berserker, hugger, elfe, hugger
+  berserker TeamA (-1,1) HP 310/400 Id 00000001-0000-0000-0000-000000000000
+  hugger TeamA (-1,1) HP 20/500 Id 00000003-0000-0000-0000-000000000000
+  elfe TeamB (-1,1) HP 130/450 Id 00000065-0000-0000-0000-000000000000
+  hugger TeamB (-1,1) HP 500/500 Id 00000066-0000-0000-0000-000000000000
+  berserker TeamB (-1,1) HP 140/400 Id 00000067-0000-0000-0000-000000000000
+  Effekt Umklammerung von 00000003-0000-0000-0000-000000000000 auf 00000067-0000-0000-0000-000000000000 Rest 
+  Effekt Umklammerung von 00000003-0000-0000-0000-000000000000 auf 00000003-0000-0000-0000-000000000000 Rest 
+
+Akteur berserker TeamB Budget TurnBudget { CanMove = True, CanAct = True, HasAnyBudget = True }; Runde 6; gewaehlt Attack 00000001-0000-0000-0000-000000000000, einstufig Move (-1,1)
+  Reihenfolge: berserker, berserker, hugger, elfe, hugger
+  berserker TeamA (-1,1) HP 310/400 Id 00000001-0000-0000-0000-000000000000
+  hugger TeamA (-1,1) HP 20/500 Id 00000002-0000-0000-0000-000000000000
+  elfe TeamB (-1,1) HP 130/450 Id 00000065-0000-0000-0000-000000000000
+  hugger TeamB (-1,1) HP 500/500 Id 00000066-0000-0000-0000-000000000000
+  berserker TeamB (-1,1) HP 140/400 Id 00000067-0000-0000-0000-000000000000
+  Effekt Umklammerung von 00000002-0000-0000-0000-000000000000 auf 00000067-0000-0000-0000-000000000000 Rest 
+  Effekt Umklammerung von 00000002-0000-0000-0000-000000000000 auf 00000002-0000-0000-0000-000000000000 Rest 
+
+--- 18:27:50
+Verhalten k3-vs-k5: 240 Partien in 514,2 s (2142,4 ms/Partie Wandzeit bei 12 Threads)
+  Entscheidungen 45080 (187,8 je Partie), 35,273 ms je Entscheidung (Mittel ueber alle Threads, nur Hauptagent)
+  geschaetzter Vollauf (257.040 Partien): 152,97 h
+  Rundenlimit 13,3 %, Runden im Schnitt 20,40
+  je Heldenzug: Bewegungen 0,949, Angriffe 0,604, Faehigkeiten 0,279
+  Berserker: 488 Angriffe bei 6298 Zuegen mit Gelegenheit (7,7 %), 2,03 je Partie
+  Aufladen/Laden: 32 bei 1122 Zuegen mit Gelegenheit (2,9 %), 0,13 je Partie
+  Faehigkeit:aufladen/laden: 32 (0,13 je Partie)
+  Faehigkeit:elementarschlag/erde: 53 (0,22 je Partie)
+  Faehigkeit:elementarschlag/feuer: 52 (0,22 je Partie)
+  Faehigkeit:heilung: 3899 (16,25 je Partie)
+  Faehigkeit:lied/kampflied: 839 (3,50 je Partie)
+  Faehigkeit:lied/marschlied: 31 (0,13 je Partie)
+  Faehigkeit:mauer: 881 (3,67 je Partie)
+  Faehigkeit:schildwall: 259 (1,08 je Partie)
+  Faehigkeit:trugbild: 125 (0,52 je Partie)
+  Faehigkeit:umklammerung/greifen: 64 (0,27 je Partie)
+  Faehigkeit:umklammerung/loesen: 21 (0,09 je Partie)
+  Abweichung:k5: 672 (1,5 % der Entscheidungen)
+  Abweichung:k5:BerserkerNurDort: 3 (0,0 % der Entscheidungen)
+  Abweichung:k5:BerserkerNurHier: 6 (0,0 % der Entscheidungen)
+  Abweichung:k5:LadenNurDort: 4 (0,0 % der Entscheidungen)
+Akteur hugger TeamB Budget TurnBudget { CanMove = False, CanAct = True, HasAnyBudget = True }; Runde 9; gewaehlt Attack 00000001-0000-0000-0000-000000000000, einstufig Ability TacticsCore.Abilities.AbilityTarget+UnitTarget greifen
+  Reihenfolge: berserker, elfe, elfe, hugger, hugger, wand
+  berserker TeamA (-1,1) HP 340/400 Id 00000001-0000-0000-0000-000000000000
+  elfe TeamA (-1,1) HP 430/450 Id 00000002-0000-0000-0000-000000000000
+  hugger TeamA (-1,1) HP 500/500 Id 00000003-0000-0000-0000-000000000000
+  hugger TeamB (-1,1) HP 60/500 Id 00000065-0000-0000-0000-000000000000
+  wand TeamB (-1,5) HP 1000/1000 Id 00000066-0000-0000-0000-000000000000
+  elfe TeamB (-1,1) HP 290/450 Id 00000067-0000-0000-0000-000000000000
+
+Akteur hugger TeamB Budget TurnBudget { CanMove = False, CanAct = True, HasAnyBudget = True }; Runde 9; gewaehlt Attack 00000001-0000-0000-0000-000000000000, einstufig Ability TacticsCore.Abilities.AbilityTarget+UnitTarget greifen
+  Reihenfolge: berserker, elfe, elfe, hugger, hugger, wand
+  berserker TeamA (-1,1) HP 340/400 Id 00000001-0000-0000-0000-000000000000
+  hugger TeamA (-1,1) HP 500/500 Id 00000002-0000-0000-0000-000000000000
+  elfe TeamA (-1,1) HP 430/450 Id 00000003-0000-0000-0000-000000000000
+  hugger TeamB (-1,1) HP 60/500 Id 00000065-0000-0000-0000-000000000000
+  wand TeamB (-1,5) HP 1000/1000 Id 00000066-0000-0000-0000-000000000000
+  elfe TeamB (-1,1) HP 290/450 Id 00000067-0000-0000-0000-000000000000
+
+Akteur wand TeamB Budget TurnBudget { CanMove = False, CanAct = True, HasAnyBudget = True }; Runde 17; gewaehlt Attack 00000003-0000-0000-0000-000000000000, einstufig Ability TacticsCore.Abilities.AbilityTarget+FieldTarget 
+  Reihenfolge: berserker, wand, elfe, schildtraeger
+  schildtraeger TeamA (-1,3) HP 790/850 Id 00000001-0000-0000-0000-000000000000
+  elfe TeamA (-1,3) HP 400/450 Id 00000002-0000-0000-0000-000000000000
+  berserker TeamA (-1,3) HP 365/400 Id 00000003-0000-0000-0000-000000000000
+  wand TeamB (-1,3) HP 550/1000 Id 00000066-0000-0000-0000-000000000000
+

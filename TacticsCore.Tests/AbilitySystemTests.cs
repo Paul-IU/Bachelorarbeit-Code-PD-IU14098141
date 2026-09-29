@@ -51,7 +51,12 @@ public class AbilitySystemTests
         var state = NewState();
         var elfe = new Hero(Id(1), Team.TeamA, new HexCoordinate(0, 0), DefaultHeroes.Elfe);
         state.AddUnit(elfe);
-        elfe.ApplyDamage(15);
+        // Bewusst nur ein kleiner Schaden (statt eines an die aktuelle
+        // Heilstärke gekoppelten Werts): der Test soll unabhängig vom exakten
+        // (Balancing-bedingt schwankenden) Heilwert stabil bleiben - jede
+        // Heilung von mindestens 5 überschreitet 45-5=40 und wird bei
+        // MaxHitPoints gedeckelt.
+        elfe.ApplyDamage(5);
 
         Assert.Contains(
             AbilitySystem.GetLegalAbilityUses(elfe, state),
@@ -60,7 +65,7 @@ public class AbilitySystemTests
         bool used = AbilitySystem.TryUseAbility(elfe, new AbilityTarget.UnitTarget(elfe), state);
 
         Assert.True(used);
-        Assert.Equal(elfe.MaxHitPoints, elfe.CurrentHitPoints); // Distanz 0 -> volle Heilung (20) gedeckelt bei MaxHitPoints (45-15+20=50 > 45)
+        Assert.Equal(elfe.MaxHitPoints, elfe.CurrentHitPoints); // Distanz 0 -> volle Heilung, gedeckelt bei MaxHitPoints
     }
 
     [Fact]
@@ -100,8 +105,8 @@ public class AbilitySystemTests
         Assert.True(AbilitySystem.TryUseAbility(elfe, new AbilityTarget.UnitTarget(allyFar), state));
 
         Assert.True(allyClose.CurrentHitPoints > allyFar.CurrentHitPoints);
-        Assert.Equal(1 + 15, allyClose.CurrentHitPoints); // 1 HP + (20 - 5*1)
-        Assert.Equal(1 + 10, allyFar.CurrentHitPoints);   // 1 HP + (20 - 5*2, durch Minimum 10 gestützt)
+        Assert.Equal(1 + 70, allyClose.CurrentHitPoints); // 1 HP + (120 - 50*1) - Bachelorarbeit-Korrektur: ×10 skaliert
+        Assert.Equal(1 + 20, allyFar.CurrentHitPoints);   // 1 HP + (120 - 50*2, durch Minimum 20 gestützt)
     }
 
     [Fact]
@@ -164,6 +169,45 @@ public class AbilitySystemTests
         Assert.Equal(
             first.Select(o => ((AbilityTarget.UnitTarget)o.Target).Unit.Id),
             second.Select(o => ((AbilityTarget.UnitTarget)o.Target).Unit.Id));
+    }
+
+    /// <summary>
+    /// Regressionstest für die teamneutrale Sortierung (Bachelorarbeit-
+    /// Korrektur "Symmetrie der Spiegelpaarungen"): derselbe Hugger, dasselbe
+    /// Zielfeld - einmal als Team A (Ids 1/101), einmal mit vertauschten Teams
+    /// (Ids 101/1) - muss seine Optionen in derselben Reihenfolge anbieten.
+    /// Vorher lag "Lösen" (Schlüssel = eigene Id) im ersten Fall vor
+    /// "Greifen" (Schlüssel = Id des Ziels), im zweiten dahinter.
+    /// </summary>
+    [Fact]
+    public void GetLegalAbilityUses_HuggerAngeheftetAufDemFeldDesZiels_ReihenfolgeIstUnabhaengigVonDenTeamIds()
+    {
+        static IReadOnlyList<string> OptionenReihenfolge(Team huggerTeam, Team enemyTeam, int huggerId, int enemyId)
+        {
+            var state = NewState();
+            var hugger = new Hero(Id(huggerId), huggerTeam, new HexCoordinate(0, 1), DefaultHeroes.Hugger);
+            var enemy = new TestUnit(Id(enemyId), enemyTeam, new HexCoordinate(0, 2), speed: 10);
+            state.AddUnit(hugger);
+            state.AddUnit(enemy);
+            // Verbündeter außerhalb der Fähigkeitsreichweite: seit der Behebung der Regellücke
+            // "angehefteter letzter Held" kann ein Hugger als EINZIGER Held seines Teams nicht greifen.
+            state.AddUnit(new TestUnit(Id(huggerId + 1), huggerTeam, new HexCoordinate(0, 5), speed: 10));
+
+            var greifen = hugger.Definition.Ability.Modes!.Single(m => m.Id == "greifen");
+            Assert.True(AbilitySystem.TryUseAbility(hugger, new AbilityTarget.UnitTarget(enemy), state, greifen));
+            Assert.Equal(enemy.Position, hugger.Position); // angeheftet: beide teilen sich jetzt das Feld
+
+            return AbilitySystem.GetLegalAbilityUses(hugger, state)
+                .Select(o => $"{o.Mode!.Id}:{(((AbilityTarget.UnitTarget)o.Target).Unit.Id == hugger.Id ? "selbst" : "gegner")}")
+                .ToList();
+        }
+
+        var alsTeamA = OptionenReihenfolge(Team.TeamA, Team.TeamB, huggerId: 1, enemyId: 101);
+        var alsTeamB = OptionenReihenfolge(Team.TeamB, Team.TeamA, huggerId: 101, enemyId: 1);
+
+        Assert.Equal(alsTeamA, alsTeamB);
+        Assert.Equal("loesen:selbst", alsTeamA[0]); // eigene Einheit (auch der Anwender selbst) vor gegnerischer auf demselben Feld
+        Assert.Contains("greifen:gegner", alsTeamA);
     }
 
     [Fact]

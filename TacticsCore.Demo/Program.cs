@@ -68,6 +68,14 @@ switch (mode)
         RunFullBaseline(args.Skip(1).ToArray());
         break;
 
+    case "batch-match":
+        RunBatchMatch(args.Skip(1).ToArray());
+        break;
+
+    case "play-one":
+        RunPlayOne(args.Skip(1).ToArray());
+        break;
+
     default:
         RunHeroesVersusStandardFiguresMatch();
         Console.WriteLine();
@@ -100,7 +108,7 @@ static void RunHeroesVersusStandardFiguresMatch()
     Console.WriteLine("Ausgangsstellung (Team A: Schildträger=T, Elfe=E, Berserker=K | Team B: Standardfiguren X/Y/Z):");
     Console.WriteLine(AsciiRenderer.Render(state, unitLabel: u => Name(names, u.Id)));
 
-    var controller = new MatchController(state, new RandomAgent(), new RandomAgent(), seed, recordReplay: true);
+    var controller = new MatchController(state, new RandomAgentByActionType(), new RandomAgentByActionType(), seed, recordReplay: true);
     var result = controller.Run();
 
     Console.WriteLine($"Seed: {seed}   Startteam: {result.StartingTeam}");
@@ -257,7 +265,7 @@ static void RunHeroMirrorPlausibilityCheck(int matchCount)
     for (int seed = 0; seed < matchCount; seed++)
     {
         var state = BuildMirrorHeroLineup(catalog);
-        var result = new MatchController(state, new RandomAgent(), new RandomAgent(), seed).Run();
+        var result = new MatchController(state, new RandomAgentByActionType(), new RandomAgentByActionType(), seed).Run();
 
         switch (result.Winner)
         {
@@ -451,7 +459,7 @@ static void RunBuffCompare(string[] cliArgs)
     for (int seed = 0; seed < matchCount; seed++)
     {
         var state = BuildBuffCompareLineup(teamAHeroes, teamBHeroes);
-        var result = new MatchController(state, new RandomAgent(), new RandomAgent(), seed).Run();
+        var result = new MatchController(state, new RandomAgentByActionType(), new RandomAgentByActionType(), seed).Run();
 
         switch (result.Winner)
         {
@@ -549,7 +557,7 @@ static void RunInteractiveMode()
     Func<Unit, string> unitLabel = u => Name(names, u.Id);
 
     IAgent teamAAgent = new HumanAgent(new ConsoleHumanInputSource(unitLabel));
-    IAgent teamBAgent = humanVsHuman ? new HumanAgent(new ConsoleHumanInputSource(unitLabel)) : new RandomAgent();
+    IAgent teamBAgent = humanVsHuman ? new HumanAgent(new ConsoleHumanInputSource(unitLabel)) : new RandomAgentByActionType();
 
     Console.WriteLine();
     Console.WriteLine("Ausgangsstellung (Team A: A1-A3, Team B: B1-B3):");
@@ -658,17 +666,41 @@ static void RunSmallBatchDemo()
 // GEORDNETEN 84x84-Zählung gerechnet).
 //
 // Beispiel-Aufruf:
-//   dotnet run --project TacticsCore.Demo -- full-baseline paarungen.csv kompositionen.csv 2026
+//   dotnet run --project TacticsCore.Demo -- full-baseline paarungen.csv kompositionen.csv helden.csv 2026
 // =======================================================================
-static void RunFullBaseline(string[] cliArgs)
+static void RunFullBaseline(string[] allArgs)
 {
-    if (cliArgs.Length is < 2 or > 3 || (cliArgs.Length == 3 && !int.TryParse(cliArgs[2], out _)))
+    // Schalter an beliebiger Stelle erlaubt, die übrigen Parameter bleiben positionsgebunden.
+    const string verifyFlag = "--verify-name-independence";
+    bool verifyNameIndependence = allArgs.Contains(verifyFlag, StringComparer.OrdinalIgnoreCase);
+    var cliArgs = allArgs.Where(a => !a.Equals(verifyFlag, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    // Katalogvariante (Varianten-Läufe): "--variant <name>", siehe HeroCatalogVariants.FromName.
+    const string variantFlag = "--variant";
+    string? variantName = null;
+    int variantIndex = cliArgs.FindIndex(a => a.Equals(variantFlag, StringComparison.OrdinalIgnoreCase));
+    if (variantIndex >= 0 && variantIndex + 1 < cliArgs.Count)
     {
-        Console.WriteLine("Verwendung: full-baseline <paarungenCsv> <kompositionenCsv> [baseSeed]");
+        variantName = cliArgs[variantIndex + 1];
+        cliArgs.RemoveRange(variantIndex, 2);
+    }
+
+    if (cliArgs.Count is < 3 or > 5 || (cliArgs.Count >= 4 && !int.TryParse(cliArgs[3], out _)))
+    {
+        Console.WriteLine($"Verwendung: full-baseline <paarungenCsv> <kompositionenCsv> <heldenCsv> [baseSeed] [agent] [{verifyFlag}] [{variantFlag} <name>]");
         Console.WriteLine();
         Console.WriteLine("  paarungenCsv       Zieldatei, eine Zeile je Paarung (siehe CsvExporter.ExportPairingResults).");
         Console.WriteLine("  kompositionenCsv   Zieldatei, eine Zeile je Komposition mit ihrer über alle Paarungen aggregierten Siegquote.");
+        Console.WriteLine("  heldenCsv          Zieldatei, eine Zeile je EINZELHELD (über alle 28 Kompositionen mit ihm aggregiert), nach Siegquote absteigend sortiert.");
         Console.WriteLine("  baseSeed           Optional, Standard 2026 - leitet daraus deterministisch den Seed JEDER Einzelpartie ab.");
+        Console.WriteLine($"  agent              Optional, Standard '{AgentNames.ByActionType}' - Auswahlregel des Zufallsagenten auf BEIDEN Seiten (siehe AgentConfiguration.FromName). Gültige Werte: {string.Join(", ", AgentNames.All.Select(n => $"'{n}'"))}. NUR zusammen mit einem explizit angegebenen baseSeed nutzbar (beide sind Positionsparameter).");
+        Console.WriteLine($"  {verifyFlag}");
+        Console.WriteLine("                     Optional (Standard aus): spielt jede Partie zusätzlich mit vertauschten Team-Etiketten und prüft,");
+        Console.WriteLine("                     ob Sieger, Rundenzahl und Rest-Lebenspunkte spiegelbildlich sind. Meldet jede Abweichung einzeln");
+        Console.WriteLine("                     mit dem ersten abweichenden Zug. Die CSV-Ergebnisse bleiben unverändert; etwa doppelte Laufzeit.");
+        Console.WriteLine($"  {variantFlag} <name>");
+        Console.WriteLine("                     Optional: Katalogvariante statt des Basiskatalogs, Form <heldId>_<dmg|hp|ability>_<prozent>,");
+        Console.WriteLine("                     z.B. schildtraeger_dmg_10 (siehe HeroCatalogVariants.FromName). Der Basiskatalog bleibt unverändert.");
         Console.WriteLine();
         Console.WriteLine("Spielt ALLE 3.570 eindeutigen Paarungen (84 Kompositionen, inkl. 84 Spiegelpaarungen)");
         Console.WriteLine("über JEWEILS ALLE 72 Ausgangslagen (beide Startteam-Varianten je Paarung eingeschlossen) -");
@@ -679,45 +711,98 @@ static void RunFullBaseline(string[] cliArgs)
 
     string pairingsCsvPath = cliArgs[0];
     string compositionsCsvPath = cliArgs[1];
-    int baseSeed = cliArgs.Length == 3 ? int.Parse(cliArgs[2]) : 2026;
+    string heroesCsvPath = cliArgs[2];
+    int baseSeed = cliArgs.Count >= 4 ? int.Parse(cliArgs[3]) : 2026;
+    // Bachelorarbeit-Erweiterung ("Auswahl der Agenten in der Batch-
+    // Simulation ... ohne dass Code geändert werden muss"): der zu
+    // verwendende Agent ist rein über dieses Kennwort steuerbar, siehe
+    // AgentConfiguration.FromName/AgentNames.
+    var agentConfiguration = cliArgs.Count == 5 ? AgentConfiguration.FromName(cliArgs[4]) : AgentConfiguration.RandomVsRandom();
 
     var board = new Board();
-    var catalog = DefaultHeroes.CreateDefaultCatalog();
+    var catalog = variantName is null
+        ? DefaultHeroes.CreateDefaultCatalog()
+        : HeroCatalogVariants.FromName(DefaultHeroes.CreateDefaultCatalog(), variantName);
     var allCompositions = CompositionGenerator.GenerateAllCompositions(catalog);
     var pairings = GenerateAllUniquePairingsIncludingMirrors(allCompositions);
     int totalMatches = pairings.Count * 72;
 
-    Console.WriteLine("=== TacticsCore - Vollständiger Basislauf (Zufallsagent gegen Zufallsagent) ===");
+    Console.WriteLine("=== TacticsCore - Vollständiger Basislauf ===");
     Console.WriteLine();
     Console.WriteLine($"{allCompositions.Count} Kompositionen -> {pairings.Count} eindeutige Paarungen (davon {allCompositions.Count} Spiegelpaarungen) x 72 Ausgangslagen = {totalMatches} Partien.");
-    Console.WriteLine($"Basis-Seed: {baseSeed}   Threads: {Environment.ProcessorCount}");
+    Console.WriteLine($"Basis-Seed: {baseSeed}   Agent: {agentConfiguration.Name}   Threads: {Environment.ProcessorCount}");
+    Console.WriteLine($"Etiketten-Prüfung: {(verifyNameIndependence ? "an (jede Partie zusätzlich mit vertauschten Etiketten)" : "aus")}");
+    Console.WriteLine($"Katalog: {variantName ?? "Basiskatalog"}");
     Console.WriteLine();
 
-    // Fortschritt nicht bei JEDER einzelnen Partie ausgeben (bei 257.040
-    // Partien wäre das reine Konsolen-Schreiblast ohne Zusatznutzen) -
-    // stattdessen alle 1000 Partien plus garantiert beim letzten Fortschritt.
-    const int reportEvery = 1000;
+    // Fortschrittsanzeige (siehe BatchProgressReporter): dieselbe Terminalzeile
+    // höchstens alle 2 s, dazu eine Fortschrittsdatei neben der Paarungs-CSV, die
+    // bei jeder Aktualisierung ersetzt wird - abfragbar auch während eines Laufs,
+    // dessen Terminalausgabe erst nach Abschluss sichtbar ist.
+    string progressFilePath = Path.ChangeExtension(pairingsCsvPath, ".fortschritt.txt");
+    var progressReporter = new BatchProgressReporter(progressFilePath, verifyNameIndependence);
+    Console.WriteLine($"Fortschrittsdatei: {progressFilePath}");
     var result = BatchSimulationRunner.Run(
-        board, pairings, AgentConfiguration.RandomVsRandom(),
+        board, pairings, agentConfiguration,
         baseSeed: baseSeed, maxSetupsPerPairing: null, degreeOfParallelism: Environment.ProcessorCount,
-        onProgress: p =>
-        {
-            if (p.CompletedMatches % reportEvery == 0 || p.CompletedMatches == p.TotalMatches)
-            {
-                Console.Write($"\rFortschritt: {p.CompletedMatches}/{p.TotalMatches} Partien, Paarung {p.CompletedPairings + 1}/{p.TotalPairings} ({p.Elapsed.TotalSeconds:F0}s)   ");
-            }
-        });
+        onProgress: progressReporter.Report,
+        verifyNameIndependence: verifyNameIndependence,
+        recordMatches: true);
+    progressReporter.Finish(new BatchProgress(pairings.Count, pairings.Count, totalMatches, totalMatches, result.ElapsedTime));
 
     Console.WriteLine();
     Console.WriteLine();
     Console.WriteLine($"Gesamtlaufzeit: {result.ElapsedTime.TotalSeconds:F1} s für {totalMatches} Partien ({result.ElapsedTime.TotalMilliseconds / totalMatches:F2} ms/Partie im Schnitt).");
     Console.WriteLine();
 
-    CsvExporter.ExportPairingResults(result.PairingResults, pairingsCsvPath);
-    CsvExporter.ExportCompositionWinRates(result.PairingResults, compositionsCsvPath);
+    if (result.NameIndependence is { } check)
+    {
+        Console.WriteLine($"Etiketten-Prüfung: {check.CheckedMatches} Partien geprüft, {check.Violations.Count} Abweichung(en).");
+        foreach (var violation in check.Violations)
+        {
+            Console.WriteLine();
+            Console.Write(violation.Describe());
+        }
+
+        Console.WriteLine();
+    }
+
+    CsvExporter.ExportPairingResults(result.PairingResults, pairingsCsvPath, agentConfiguration.Name);
+    CsvExporter.ExportCompositionWinRates(result.PairingResults, compositionsCsvPath, agentConfiguration.Name);
+    CsvExporter.ExportHeroWinRates(result.PairingResults, heroesCsvPath, agentConfiguration.Name);
+    string matchesCsvPath = MatchesCsvPath(pairingsCsvPath);
+    CsvExporter.ExportMatches(result.Matches!, pairings, matchesCsvPath, agentConfiguration.Name);
 
     Console.WriteLine($"Paarungs-Ergebnisse gespeichert:      {pairingsCsvPath} ({result.PairingResults.Count} Zeilen + Kopfzeile)");
+    Console.WriteLine($"Einzelpartien gespeichert (gzip):     {matchesCsvPath} ({result.Matches!.Count} Zeilen + Kopfzeile)");
     Console.WriteLine($"Kompositions-Siegquoten gespeichert:  {compositionsCsvPath} ({allCompositions.Count} Zeilen + Kopfzeile)");
+    Console.WriteLine($"Helden-Siegquoten gespeichert:        {heroesCsvPath} ({catalog.All.Count} Zeilen + Kopfzeile)");
+    Console.WriteLine();
+
+    // Bachelorarbeit-Korrektur (siehe CsvExporter.ExportHeroWinRates und
+    // HeroWinRateExpectations): rein kombinatorische Referenzwerte, wie ein
+    // VÖLLIG NEUTRALER Held bei DIESER Katalog-/Teamgröße abschneiden würde -
+    // bewusst aus catalog.All.Count und der tatsächlichen Teamgröße
+    // berechnet, nicht fest verdrahtet, damit sie sich automatisch anpassen,
+    // sobald der Katalog erweitert wird.
+    int teamSize = allCompositions[0].Heroes.Count;
+    var (neutralRaw, neutralCleaned) = HeroWinRateExpectations.NeutralExpectation(catalog.All.Count, teamSize);
+    Console.WriteLine($"Neutrale Erwartung bei {catalog.All.Count} Helden, Teamgröße {teamSize}: bereinigte Siegquote {neutralCleaned * 100:F2}% (immer 50%), rohe/verzerrte Gesamt-Siegquote {neutralRaw * 100:F2}% (siehe 'SiegquoteGesamtVerzerrt' in {heroesCsvPath}).");
+}
+
+/// <summary>
+/// Pfad der Partiedatei (siehe CsvExporter.ExportMatches) neben der Paarungs-CSV:
+/// "paarungen" im Dateinamen wird zu "partien" ("basislauf_x_paarungen.csv" ->
+/// "basislauf_x_partien.csv.gz"); ohne dieses Wort wird "_partien" angehängt.
+/// </summary>
+static string MatchesCsvPath(string pairingsCsvPath)
+{
+    string directory = Path.GetDirectoryName(pairingsCsvPath) ?? string.Empty;
+    string name = Path.GetFileNameWithoutExtension(pairingsCsvPath);
+    name = name.Contains("paarungen", StringComparison.OrdinalIgnoreCase)
+        ? name.Replace("paarungen", "partien", StringComparison.OrdinalIgnoreCase)
+        : name + "_partien";
+    return Path.Combine(directory, name + ".csv.gz");
 }
 
 /// <summary>
@@ -779,7 +864,7 @@ static void RunExportReplay(string[] exportArgs)
 
     var setup = allSetups[setupIndex];
     var state = AusgangslagenGenerator.BuildGameState(setup, board);
-    var result = new MatchController(state, new RandomAgent(), new RandomAgent(), seed, recordReplay: true).Run(setup.StartingTeam);
+    var result = new MatchController(state, new RandomAgentByActionType(), new RandomAgentByActionType(), seed, recordReplay: true).Run(setup.StartingTeam);
 
     // Held-Zuordnung exakt nach dem Vergabeschema von
     // AusgangslagenGenerator.BuildGameState (Team A: 1-3, Team B: 101-103,
@@ -802,13 +887,109 @@ static void RunExportReplay(string[] exportArgs)
     Console.WriteLine($"Sieger: {result.Winner}   Ende durch: {result.EndReason}   Runden: {result.RoundsPlayed}   Ereignisse: {result.Replay!.Entries.Count}");
 }
 
+// =======================================================================
+// Nachspielen EINER Partie - Gegenstück zur Godot-Oberfläche. Beide Modi
+// bauen die Partie über dieselben Funktionen auf wie Batch-Lauf und Godot
+// (AusgangslagenGenerator.BuildGameState, AgentConfiguration.FromName,
+// MatchController) und geben den Fingerabdruck des Verlaufs aus (siehe
+// ReplayFingerprint). Gleicher Fingerabdruck = gleicher Verlauf.
+//
+//   batch-match <paarungsIndex> <ausgangslagenIndex> [baseSeed] [agent]
+//     rekonstruiert eine Partie des vollständigen Basislaufs: Paarungsindex =
+//     Zeile der Paarungs-CSV (0-basiert, ohne Kopfzeile). Gibt zusätzlich aus,
+//     was in Godot einzustellen ist, um sie dort nachzuspielen.
+//
+//   play-one <heldA1> <heldA2> <heldA3> <heldB1> <heldB2> <heldB3> <startteam A|B|seed> <seed> <agentA> <agentB>
+//     spielt eine frei beschriebene Partie; die Helden stehen in der
+//     Reihenfolge der Startfelder, wie sie die Godot-Vorbereitung anzeigt.
+// =======================================================================
+static void RunBatchMatch(string[] cliArgs)
+{
+    if (cliArgs.Length is < 2 or > 4 || !int.TryParse(cliArgs[0], out int pairingIndex) || !int.TryParse(cliArgs[1], out int setupIndex)
+        || (cliArgs.Length >= 3 && !int.TryParse(cliArgs[2], out _)))
+    {
+        Console.WriteLine("Verwendung: batch-match <paarungsIndex> <ausgangslagenIndex 0-71> [baseSeed] [agent]");
+        Console.WriteLine("  paarungsIndex: Zeile der Paarungs-CSV des Basislaufs (0-basiert, ohne Kopfzeile).");
+        Console.WriteLine($"  agent: {string.Join(", ", AgentNames.All)} (Standard {AgentNames.ByActionType}).");
+        return;
+    }
+
+    int baseSeed = cliArgs.Length >= 3 ? int.Parse(cliArgs[2]) : 2026;
+    string agent = cliArgs.Length == 4 ? cliArgs[3] : AgentNames.ByActionType;
+
+    var board = new Board();
+    var pairings = GenerateAllUniquePairingsIncludingMirrors(CompositionGenerator.GenerateAllCompositions(DefaultHeroes.CreateDefaultCatalog()));
+    if (pairingIndex < 0 || pairingIndex >= pairings.Count)
+    {
+        Console.WriteLine($"Paarungsindex muss zwischen 0 und {pairings.Count - 1} liegen.");
+        return;
+    }
+
+    var (teamA, teamB) = pairings[pairingIndex];
+    var setups = AusgangslagenGenerator.GenerateAllSetups(teamA, teamB, board);
+    if (setupIndex < 0 || setupIndex >= setups.Count)
+    {
+        Console.WriteLine($"Ausgangslagen-Index muss zwischen 0 und {setups.Count - 1} liegen.");
+        return;
+    }
+
+    var setup = setups[setupIndex];
+    int seed = BatchSimulationRunner.DeriveSeed(baseSeed, pairingIndex, setupIndex);
+    Console.WriteLine($"Basislauf-Partie: Paarung {pairingIndex} ({teamA.Key} gegen {teamB.Key}), Ausgangslage {setupIndex}, Basis-Seed {baseSeed}");
+    PlayAndReport(setup, setup.StartingTeam, seed, agent, agent, board);
+}
+
+static void RunPlayOne(string[] cliArgs)
+{
+    var catalog = DefaultHeroes.CreateDefaultCatalog();
+    if (cliArgs.Length != 10 || !int.TryParse(cliArgs[7], out int seed) || cliArgs[6].ToUpperInvariant() is not ("A" or "B" or "SEED"))
+    {
+        Console.WriteLine("Verwendung: play-one <heldA1> <heldA2> <heldA3> <heldB1> <heldB2> <heldB3> <startteam A|B|seed> <seed> <agentA> <agentB>");
+        Console.WriteLine("  Helden in der Reihenfolge der Startfelder (wie in der Godot-Vorbereitung angezeigt).");
+        Console.WriteLine("  startteam 'seed' = beginnendes Team wird wie in Godot ('Zufällig aus Seed') aus dem Seed gezogen.");
+        Console.WriteLine($"  Agenten: {string.Join(", ", AgentNames.All)}");
+        Console.WriteLine("  Helden-Ids: " + string.Join(", ", catalog.All.Select(h => h.Id)));
+        return;
+    }
+
+    var board = new Board();
+    var fieldsA = board.GetStartFields(FieldType.BlossomA).OrderBy(f => f.Coordinate.Q).ThenBy(f => f.Coordinate.R).Select(f => f.Coordinate).ToList();
+    var fieldsB = board.GetStartFields(FieldType.BlossomB).OrderBy(f => f.Coordinate.Q).ThenBy(f => f.Coordinate.R).Select(f => f.Coordinate).ToList();
+    var unitsA = fieldsA.Select((field, i) => (catalog.Get(cliArgs[i]), field)).ToList();
+    var unitsB = fieldsB.Select((field, i) => (catalog.Get(cliArgs[3 + i]), field)).ToList();
+
+    Team? startingTeam = cliArgs[6].ToUpperInvariant() switch { "A" => Team.TeamA, "B" => Team.TeamB, _ => null };
+    var setup = new GameSetup(unitsA, unitsB, startingTeam ?? Team.TeamA);
+    PlayAndReport(setup, startingTeam, seed, cliArgs[8], cliArgs[9], board);
+}
+
+static void PlayAndReport(GameSetup setup, Team? startingTeam, int seed, string agentA, string agentB, Board board)
+{
+    var state = AusgangslagenGenerator.BuildGameState(setup, board);
+    var controller = new MatchController(state,
+        AgentConfiguration.FromName(agentA).CreateTeamAAgent(),
+        AgentConfiguration.FromName(agentB).CreateTeamBAgent(),
+        seed, recordReplay: true);
+    var result = controller.Run(startingTeam);
+
+    Console.WriteLine();
+    Console.WriteLine("In Godot einzustellen:");
+    Console.WriteLine($"  Team A: {string.Join(", ", setup.TeamAUnits.Select(u => $"Feld {u.Position} = {u.Hero.DisplayName}"))}; gesteuert von {agentA}");
+    Console.WriteLine($"  Team B: {string.Join(", ", setup.TeamBUnits.Select(u => $"Feld {u.Position} = {u.Hero.DisplayName}"))}; gesteuert von {agentB}");
+    Console.WriteLine($"  Startteam: {(startingTeam is Team t ? t.ToString() : "Zufällig (aus Seed)")}   Seed: {seed}");
+    Console.WriteLine();
+    Console.WriteLine($"Ergebnis: Sieger {result.Winner}, Ende durch {result.EndReason}, Runden {result.RoundsPlayed}, " +
+                      $"Rest-HP A {result.TeamAResult.TotalCurrentHitPoints}, B {result.TeamBResult.TotalCurrentHitPoints}");
+    Console.WriteLine($"Fingerabdruck des Verlaufs: {ReplayFingerprint.Compute(result.Replay!.Entries)}");
+}
+
 static void PrintCatalogWinRate(string label, HeroCatalog catalog, int matchCount)
 {
     int teamAWins = 0;
     for (int seed = 0; seed < matchCount; seed++)
     {
         var (state, _) = BuildHeroLineup(catalog);
-        var result = new MatchController(state, new RandomAgent(), new RandomAgent(), seed).Run();
+        var result = new MatchController(state, new RandomAgentByActionType(), new RandomAgentByActionType(), seed).Run();
         if (result.Winner == MatchWinner.TeamA)
         {
             teamAWins++;
@@ -843,7 +1024,7 @@ static void RunNewHeroesShowcaseMatch()
     Console.WriteLine("Ausgangsstellung (Team A: Wand=W, Hugger=H, Elementarmagier=M | Team B: Illusionist=I, Musiker=U, Bogenschütze=G):");
     Console.WriteLine(AsciiRenderer.Render(state, unitLabel: u => Name(names, u.Id)));
 
-    var controller = new MatchController(state, new RandomAgent(), new RandomAgent(), seed, recordReplay: true);
+    var controller = new MatchController(state, new RandomAgentByActionType(), new RandomAgentByActionType(), seed, recordReplay: true);
     var result = controller.Run();
 
     Console.WriteLine($"Seed: {seed}   Startteam: {result.StartingTeam}");

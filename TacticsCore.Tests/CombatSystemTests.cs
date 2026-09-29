@@ -15,7 +15,7 @@ public class CombatSystemTests
     private static GameState NewState() => new(new GameBoard());
 
     [Fact]
-    public void TryAttack_ReduziertHpDesZielsUmGenau10()
+    public void TryAttack_ReduziertHpDesZielsUmGenau100()
     {
         var state = NewState();
         var attacker = new Unit(Guid.NewGuid(), Team.TeamA, new HexCoordinate(0, 0));
@@ -26,11 +26,11 @@ public class CombatSystemTests
         bool result = attacker.TryAttack(target, state);
 
         Assert.True(result);
-        Assert.Equal(40, target.CurrentHitPoints);
+        Assert.Equal(400, target.CurrentHitPoints); // Bachelorarbeit-Korrektur: ×10 skaliert (UnitDefaults), war 40
     }
 
     [Fact]
-    public void FuenfAngriffe_BesiegenEineEinheitMit50Hp_DanachIstSieEntfernt()
+    public void FuenfAngriffe_BesiegenEineEinheitMit500Hp_DanachIstSieEntfernt()
     {
         var state = NewState();
         var attacker = new Unit(Guid.NewGuid(), Team.TeamA, new HexCoordinate(0, 0));
@@ -44,7 +44,7 @@ public class CombatSystemTests
             Assert.False(target.IsDefeated);
         }
 
-        Assert.True(attacker.TryAttack(target, state)); // 5. Treffer: 50 - 5*10 = 0
+        Assert.True(attacker.TryAttack(target, state)); // 5. Treffer: 500 - 5*100 = 0
 
         Assert.True(target.IsDefeated);
         Assert.Equal(0, target.CurrentHitPoints);
@@ -56,9 +56,9 @@ public class CombatSystemTests
     public void ApplyDamage_KlemmtDieHpBei0Fest_FallenNichtInsNegative()
     {
         // Direkter Test des Clamping-Invariants über den internal-Zugriff
-        // (InternalsVisibleTo) - mit dem fixen Grundschaden von 10 auf 50 HP
+        // (InternalsVisibleTo) - mit dem fixen Grundschaden von 100 auf 500 HP
         // lässt sich ein Overkill-Treffer über CombatSystem allein nicht
-        // erzeugen (5*10 trifft exakt auf 0), daher hier isoliert geprüft.
+        // erzeugen (5*100 trifft exakt auf 0), daher hier isoliert geprüft.
         var target = new Unit(Guid.NewGuid(), Team.TeamB, new HexCoordinate(0, 1));
 
         target.ApplyDamage(9999);
@@ -79,7 +79,7 @@ public class CombatSystemTests
         bool result = attacker.TryAttack(enemy, state);
 
         Assert.True(result);
-        Assert.Equal(40, enemy.CurrentHitPoints);
+        Assert.Equal(400, enemy.CurrentHitPoints); // Bachelorarbeit-Korrektur: ×10 skaliert, war 40
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public class CombatSystemTests
         bool result = attacker.TryAttack(enemy1, state);
 
         Assert.True(result);
-        Assert.Equal(40, enemy1.CurrentHitPoints);
+        Assert.Equal(400, enemy1.CurrentHitPoints); // Bachelorarbeit-Korrektur: ×10 skaliert, war 40
         Assert.Equal(enemy2.MaxHitPoints, enemy2.CurrentHitPoints);
     }
 

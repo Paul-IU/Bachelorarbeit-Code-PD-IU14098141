@@ -19,12 +19,15 @@ public enum ReplayActionType
     UnitDefeated,
 
     /// <summary>
-    /// Ein aktiver, dauerhafter Effekt wird zu seinem regulären Tick-Zeitpunkt
-    /// verarbeitet (siehe EffectSystem.TickUnitEffects/TickFieldEffects) -
-    /// unabhängig davon, ob er dabei Schaden verursacht und/oder in
-    /// DEMSELBEN Tick abläuft (dann folgt zusätzlich ein EffectExpired-
-    /// Eintrag). Für eine spätere Oberfläche z.B. relevant, um einen
-    /// wiederkehrenden Effekt (Gift, Feldsperre, ...) sichtbar zu "pulsen".
+    /// Ein aktiver Effekt wird zu einem seiner beiden Tick-Zeitpunkte
+    /// verarbeitet (siehe EffectSystem): als SCHADENS-Tick beim Zugbeginn
+    /// seines ZIELS (nur Effekte mit Schaden über Zeit) und/oder als
+    /// DAUER-Tick beim Zugbeginn seines ANWENDERS (jeder Effekt mit
+    /// begrenzter Dauer, unit- wie feld-verankert). Läuft er beim Dauer-Tick
+    /// ab, folgt zusätzlich ein EffectExpired-Eintrag. Für eine spätere
+    /// Oberfläche z.B. relevant, um einen wiederkehrenden Effekt (Gift,
+    /// Feldsperre, ...) sichtbar zu "pulsen". Effekte ohne Schaden und ohne
+    /// begrenzte Dauer (z.B. Aufladen, Umklammerung) ticken nie.
     /// </summary>
     EffectTicked,
 

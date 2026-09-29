@@ -474,7 +474,8 @@ public partial class EventAnimationPlayer : Node
         var newOrRefreshedEffect = after.Effects.FirstOrDefault(e => e.StatModifiers is not null);
         if (newOrRefreshedEffect?.StatModifiers is { } mods)
         {
-            int net = mods.BaseAttackDamageDelta + mods.MovementRangeDelta + mods.AttackRangeDelta + mods.SpeedDelta;
+            // Prozentualer Modifikator zählt mit seinem Vorzeichen (0,67 -> Schwächung).
+            double net = mods.BaseAttackDamageDelta + mods.MovementRangeDelta + mods.AttackRangeDelta + mods.SpeedDelta + (mods.AttackDamageMultiplier - 1.0) * 100;
             bool isBuff = net >= 0;
             _ = PlayFieldFlashAsync(before.Position, isBuff ? _assets.BuffColor : _assets.DebuffColor, _assets.GetSpecificAbilityProjectileTexture(abilityId));
             return;

@@ -43,6 +43,11 @@ public sealed record EffectInfo(string Name, int? RemainingDuration, int? BonusD
             parts.Add($"ATK{Signed(m.BaseAttackDamageDelta)}");
         }
 
+        if (m.AttackDamageMultiplier != 1.0)
+        {
+            parts.Add($"ATK{Signed((int)Math.Round((m.AttackDamageMultiplier - 1.0) * 100))}%");
+        }
+
         if (m.MovementRangeDelta != 0)
         {
             parts.Add($"BEW{Signed(m.MovementRangeDelta)}");

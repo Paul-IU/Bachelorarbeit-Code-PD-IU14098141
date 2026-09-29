@@ -1,0 +1,90 @@
+
+=== Agent: byactiontype ===
+Partien vorher/nachher: 257040 / 257040
+Durchschnittliche Partiedauer (Runden): vorher 32,867  nachher 35,817  Differenz 2,950
+Anteil Rundenlimit-Ende:               vorher 2,96%  nachher 3,95%  Differenz 0,98 pp
+
+Held            Rolle     Siegq.vor    nach     Δpp  Rang v   n  Dauer v    nach      Δ  RLimit v    nach    Δpp
+elementarmagier Dmg           62,70   58,98   -3,72     1>2        29,84   32,79   2,95      1,95    2,82   0,87
+elfe            Support       60,21   60,70    0,49     2>1        33,20   36,18   2,98      4,99    6,05   1,06
+berserker       Dmg           58,53   56,30   -2,23     3>4        30,52   33,33   2,81      2,14    3,02   0,88
+illusionist     Tank          58,10   57,87   -0,23     4>3        33,29   35,97   2,68      2,68    3,43   0,75
+bogenschuetze   Dmg           49,46   45,13   -4,33     5>6        30,84   33,65   2,81      2,35    3,25   0,91
+schildtraeger   Tank          45,51   47,62    2,11     6>5        33,48   36,54   3,06      2,50    3,36   0,87
+hugger          Support       40,97   40,37   -0,60     7>9        34,58   37,25   2,68      2,54    3,40   0,86
+wand            Tank          37,93   42,64    4,71     8>7        34,82   39,09   4,27      3,04    4,86   1,81
+musiker         Support       36,59   40,38    3,79     9>8        31,62   34,10   2,48      2,56    3,29   0,73
+
+Tank-Rangfolge vorher: ['illusionist', 'schildtraeger', 'wand']
+Tank-Rangfolge nachher: ['illusionist', 'schildtraeger', 'wand']
+Kontrolle: Paarungen ohne Schildtraeger/Wand/Musiker/Elementarmagier: 55, davon abweichend: 0
+Paarungen mit mind. einem dieser Helden: 3515, davon mit geaenderter Sieganzahl: 3255
+
+Groesste Kompositions-Rueckgaenge:
+  berserker+bogenschuetze+elementarmagier          65,36% -> 58,96% (-6,40 pp)
+  bogenschuetze+elementarmagier+wand               51,97% -> 45,67% (-6,30 pp)
+  bogenschuetze+elementarmagier+hugger             53,37% -> 47,07% (-6,30 pp)
+  berserker+bogenschuetze+hugger                   51,07% -> 44,96% (-6,11 pp)
+  berserker+elementarmagier+hugger                 60,47% -> 54,65% (-5,82 pp)
+Groesste Kompositions-Zuwaechse:
+  musiker+schildtraeger+wand                       23,83% -> 36,90% (13,07 pp)
+  hugger+schildtraeger+wand                        35,43% -> 46,99% (11,56 pp)
+  illusionist+musiker+wand                         30,26% -> 41,50% (11,24 pp)
+  hugger+musiker+wand                              15,87% -> 24,97% (9,10 pp)
+  elfe+musiker+wand                                37,83% -> 46,86% (9,03 pp)
+
+Mittlere Aenderung der Kompositions-Siegquote je enthaltenem Held (pp):
+  berserker        -1,48
+  bogenschuetze    -2,87
+  elementarmagier  -2,48
+  elfe             0,34
+  hugger           -0,40
+  illusionist      -0,14
+  musiker          2,53
+  schildtraeger    1,41
+  wand             3,14
+
+=== Agent: uniform ===
+Partien vorher/nachher: 257040 / 257040
+Durchschnittliche Partiedauer (Runden): vorher 37,782  nachher 41,297  Differenz 3,515
+Anteil Rundenlimit-Ende:               vorher 4,91%  nachher 6,60%  Differenz 1,69 pp
+
+Held            Rolle     Siegq.vor    nach     Δpp  Rang v   n  Dauer v    nach      Δ  RLimit v    nach    Δpp
+elfe            Support       62,25   62,40    0,15     1>1        38,74   42,40   3,66      8,24   10,27   2,03
+elementarmagier Dmg           61,69   57,68   -4,01     2>2        34,08   37,63   3,56      3,15    4,55   1,40
+berserker       Dmg           56,28   53,61   -2,67     3>4        35,10   38,56   3,45      3,43    4,86   1,44
+bogenschuetze   Dmg           55,17   49,57   -5,60     4>6        34,92   38,48   3,55      3,64    5,17   1,52
+illusionist     Tank          53,91   53,62   -0,29     5>3        37,94   41,02   3,08      4,31    5,55   1,24
+schildtraeger   Tank          47,44   51,29    3,85     6>5        38,28   42,01   3,73      4,20    5,64   1,45
+wand            Tank          42,25   47,90    5,65     7>7        39,75   44,80   5,05      5,10    8,06   2,96
+hugger          Support       39,35   38,80   -0,55     8>8        40,34   43,60   3,26      4,87    6,61   1,73
+musiker         Support       31,66   35,13    3,47     9>9        36,23   39,36   3,14      4,34    5,71   1,37
+
+Tank-Rangfolge vorher: ['illusionist', 'schildtraeger', 'wand']
+Tank-Rangfolge nachher: ['illusionist', 'schildtraeger', 'wand']
+Kontrolle: Paarungen ohne Schildtraeger/Wand/Musiker/Elementarmagier: 55, davon abweichend: 0
+Paarungen mit mind. einem dieser Helden: 3515, davon mit geaenderter Sieganzahl: 3311
+
+Groesste Kompositions-Rueckgaenge:
+  berserker+bogenschuetze+hugger                   53,75% -> 45,11% (-8,64 pp)
+  berserker+bogenschuetze+elementarmagier          66,83% -> 58,25% (-8,58 pp)
+  bogenschuetze+elementarmagier+hugger             57,26% -> 49,42% (-7,84 pp)
+  bogenschuetze+elementarmagier+illusionist        69,53% -> 61,87% (-7,66 pp)
+  bogenschuetze+elementarmagier+wand               58,45% -> 51,49% (-6,96 pp)
+Groesste Kompositions-Zuwaechse:
+  musiker+schildtraeger+wand                       26,06% -> 40,48% (14,42 pp)
+  hugger+schildtraeger+wand                        40,44% -> 54,07% (13,63 pp)
+  illusionist+musiker+wand                         27,68% -> 39,00% (11,32 pp)
+  illusionist+schildtraeger+wand                   46,68% -> 57,44% (10,76 pp)
+  elfe+musiker+wand                                39,15% -> 48,79% (9,64 pp)
+
+Mittlere Aenderung der Kompositions-Siegquote je enthaltenem Held (pp):
+  berserker        -1,78
+  bogenschuetze    -3,74
+  elementarmagier  -2,68
+  elfe             0,11
+  hugger           -0,37
+  illusionist      -0,19
+  musiker          2,32
+  schildtraeger    2,58
+  wand             3,77

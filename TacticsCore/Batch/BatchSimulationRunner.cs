@@ -2,6 +2,7 @@ using System.Diagnostics;
 using TacticsCore.Heroes;
 using TacticsCore.Match;
 using TacticsCore.Setup;
+using TacticsCore.Units;
 
 namespace TacticsCore.Batch;
 
@@ -61,7 +62,20 @@ namespace TacticsCore.Batch;
 /// </summary>
 public static class BatchSimulationRunner
 {
-    private readonly record struct MatchOutcome(MatchWinner Winner, MatchEndReason EndReason, int RoundsPlayed, double TeamARemainingHpFraction, double TeamBRemainingHpFraction);
+    private readonly record struct MatchOutcome(
+        MatchWinner Winner,
+        MatchEndReason EndReason,
+        int RoundsPlayed,
+        double TeamARemainingHpFraction,
+        double TeamBRemainingHpFraction,
+        IReadOnlyDictionary<string, HeroActionCounts> HeroActionCounts,
+        RoundLimitResolution? Resolution,
+        int Seed,
+        Team StartingTeam,
+        int TeamASurvivingHeroes,
+        int TeamBSurvivingHeroes,
+        int TeamARemainingHitPoints,
+        int TeamBRemainingHitPoints);
 
     /// <param name="board">Das (immer gleiche) Spielfeld.</param>
     /// <param name="pairings">Die zu simulierenden Paarungen (Team-A- gegen Team-B-Komposition).</param>
@@ -70,15 +84,35 @@ public static class BatchSimulationRunner
     /// <param name="maxSetupsPerPairing">Optionale Begrenzung der je Paarung tatsächlich gespielten Ausgangslagen (von 72) - für schnelle Stichproben/Testläufe. Null = alle.</param>
     /// <param name="useAntitheticPairing">
     /// Spielt zu JEDER Ausgangslage zusätzlich, mit demselben Seed, die
-    /// teamvertauschte Variante (<see cref="GameSetup.WithSwappedTeams"/>) -
-    /// eine klassische Varianzreduktions-Technik ("antithetische Paare") aus
-    /// der Monte-Carlo-Simulation. Bei identischer Komposition auf beiden
-    /// Seiten (Spiegelpaarung) ergibt sich dadurch nachweisbar eine EXAKTE
-    /// 50%-Siegquote (siehe <see cref="GameSetup.WithSwappedTeams"/> für die
-    /// Begründung, warum das exakt statt nur näherungsweise gilt).
+    /// teamvertauschte Variante (<see cref="GameSetup.WithSwappedTeams"/>).
+    /// ACHTUNG: das ist KEINE Varianzreduktion im Sinne der Monte-Carlo-
+    /// Simulation, sondern eine Namensunabhängigkeits-Prüfung: die vertauschte
+    /// Partie ist physisch eine Dublette der ursprünglichen. Bei identischer
+    /// Komposition auf beiden Seiten (Spiegelpaarung) gewinnen beide Etiketten
+    /// dadurch exakt gleich oft (siehe <see cref="GameSetup.WithSwappedTeams"/>
+    /// für die Begründung und die Grenzen dieser Aussage); bei VERSCHIEDENEN
+    /// Kompositionen ist das Ergebnis dagegen immer exakt 50:50 und damit
+    /// ohne Aussagekraft - dort NICHT für die Auswertung verwenden. Der
+    /// vollständige Basislauf (full-baseline) nutzt sie bewusst nicht.
     /// </param>
     /// <param name="degreeOfParallelism">Maximale Anzahl gleichzeitig simulierter Partien; 1 = sequentiell.</param>
     /// <param name="onProgress">Optionaler Fortschritts-Empfänger (Anforderung 10) - wird aus BELIEBIGEM Thread aufgerufen, muss also selbst thread-sicher sein.</param>
+    /// <param name="verifyNameIndependence">
+    /// Optionale Etiketten-Prüfung (Standard aus, siehe <see cref="NameIndependenceCheck"/>):
+    /// jede Partie wird zusätzlich mit vertauschten Team-Etiketten gespielt und
+    /// ihr Ergebnis (Sieger, Endgrund, Rundenzahl, Rest-Lebenspunkte) auf
+    /// Spiegelbildlichkeit geprüft. Die Prüfpartien fließen NICHT in die
+    /// Ergebnisse ein - <see cref="SimulationRunResult.PairingResults"/> ist mit
+    /// und ohne Option bitgenau gleich. Kostet etwa die doppelte Laufzeit.
+    /// </param>
+    /// <param name="recordMatches">
+    /// Zusätzlich jede Partie einzeln zurückgeben (<see cref="SimulationRunResult.Matches"/>,
+    /// Export siehe <see cref="CsvExporter.ExportMatches"/>). Die Partien stehen ohnehin
+    /// je Paarung in einem Array mit festem Platz je Ausgangslage (siehe Punkt 2 der
+    /// Klassendokumentation); sie werden nach Abschluss der Paarung in dieser
+    /// Reihenfolge übernommen - die Zeilenfolge hängt damit nicht von der
+    /// Threadanzahl ab. Beeinflusst die Aggregate nicht.
+    /// </param>
     public static SimulationRunResult Run(
         TacticsCore.Board.Board board,
         IReadOnlyList<(TeamComposition TeamA, TeamComposition TeamB)> pairings,
@@ -87,7 +121,9 @@ public static class BatchSimulationRunner
         int? maxSetupsPerPairing = null,
         bool useAntitheticPairing = false,
         int degreeOfParallelism = 1,
-        Action<BatchProgress>? onProgress = null)
+        Action<BatchProgress>? onProgress = null,
+        bool verifyNameIndependence = false,
+        bool recordMatches = false)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -106,12 +142,19 @@ public static class BatchSimulationRunner
         int completedMatches = 0;
 
         var pairingResults = new PairingResult[pairings.Count];
+        var matches = recordMatches ? new List<MatchRecord>(totalMatches) : null;
+        var violations = verifyNameIndependence ? new List<NameIndependenceViolation>() : null;
+        int checkedMatches = 0;
 
         for (int pairingIndex = 0; pairingIndex < pairings.Count; pairingIndex++)
         {
             var setups = setupsPerPairing[pairingIndex];
             int gamesPerSetup = useAntitheticPairing ? 2 : 1;
             var outcomes = new MatchOutcome[setups.Count * gamesPerSetup];
+            // Je Ausgangslage ein fester Platz (wie outcomes) - Abweichungen
+            // erscheinen dadurch unabhängig von der Threadanzahl in derselben
+            // Reihenfolge.
+            var setupViolations = verifyNameIndependence ? new NameIndependenceViolation?[setups.Count] : null;
 
             var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = degreeOfParallelism };
             int capturedPairingIndex = pairingIndex;
@@ -121,17 +164,44 @@ public static class BatchSimulationRunner
                 int seed = DeriveSeed(baseSeed, capturedPairingIndex, setupIndex);
                 var setup = setups[setupIndex];
 
-                outcomes[setupIndex * gamesPerSetup] = PlayOne(setup, board, agents, seed);
+                var original = PlayOne(setup, board, agents, seed, recordReplay: false);
+                outcomes[setupIndex * gamesPerSetup] = ToOutcome(original);
+
+                if (setupViolations is not null)
+                {
+                    setupViolations[setupIndex] = CheckNameIndependence(
+                        pairings[capturedPairingIndex], capturedPairingIndex, setupIndex, setup, board, agents, seed, original);
+                }
+
                 ReportProgress();
 
                 if (useAntitheticPairing)
                 {
-                    outcomes[setupIndex * gamesPerSetup + 1] = PlayOne(setup.WithSwappedTeams(), board, agents, seed);
+                    outcomes[setupIndex * gamesPerSetup + 1] = ToOutcome(PlayOne(setup.WithSwappedTeams(), board, agents, seed, recordReplay: false));
                     ReportProgress();
                 }
             });
 
+            if (setupViolations is not null)
+            {
+                checkedMatches += setups.Count;
+                violations!.AddRange(setupViolations.Where(v => v is not null)!);
+            }
+
             pairingResults[pairingIndex] = Aggregate(pairings[pairingIndex].TeamA, pairings[pairingIndex].TeamB, outcomes);
+
+            if (matches is not null)
+            {
+                // Sequentiell in Index-Reihenfolge, NACH Abschluss aller Partien der Paarung.
+                for (int i = 0; i < outcomes.Length; i++)
+                {
+                    var o = outcomes[i];
+                    matches.Add(new MatchRecord(
+                        pairingIndex, i / gamesPerSetup, TeamsSwapped: i % gamesPerSetup == 1, o.Seed, o.StartingTeam,
+                        o.Winner, o.EndReason, o.Resolution, o.RoundsPlayed,
+                        o.TeamASurvivingHeroes, o.TeamBSurvivingHeroes, o.TeamARemainingHitPoints, o.TeamBRemainingHitPoints));
+                }
+            }
 
             void ReportProgress()
             {
@@ -145,7 +215,33 @@ public static class BatchSimulationRunner
             }
         }
 
-        return new SimulationRunResult(pairingResults, stopwatch.Elapsed);
+        var nameIndependence = violations is null ? null : new NameIndependenceReport(checkedMatches, violations);
+        return new SimulationRunResult(pairingResults, stopwatch.Elapsed, nameIndependence, matches);
+    }
+
+    /// <summary>
+    /// Spielt dieselbe Ausgangslage mit vertauschten Etiketten und demselben
+    /// Seed und vergleicht das Endergebnis. Nur bei einer Abweichung werden
+    /// beide Partien mit Protokoll wiederholt (deterministisch, also mit
+    /// identischem Verlauf), um den ersten nicht spiegelbildlichen Zug zu finden.
+    /// </summary>
+    private static NameIndependenceViolation? CheckNameIndependence(
+        (TeamComposition TeamA, TeamComposition TeamB) pairing, int pairingIndex, int setupIndex,
+        GameSetup setup, TacticsCore.Board.Board board, AgentConfiguration agents, int seed, MatchResult original)
+    {
+        var swappedSetup = setup.WithSwappedTeams();
+        var swapped = PlayOne(swappedSetup, board, agents, seed, recordReplay: false);
+        string? difference = NameIndependenceCheck.CompareOutcomes(original, swapped);
+        if (difference is null)
+        {
+            return null;
+        }
+
+        var originalReplay = PlayOne(setup, board, agents, seed, recordReplay: true).Replay!.Entries;
+        var swappedReplay = PlayOne(swappedSetup, board, agents, seed, recordReplay: true).Replay!.Entries;
+        return new NameIndependenceViolation(
+            pairing.TeamA, pairing.TeamB, pairingIndex, setupIndex, setup, seed, difference,
+            NameIndependenceCheck.FindFirstDivergence(originalReplay, swappedReplay));
     }
 
     /// <summary>
@@ -156,24 +252,48 @@ public static class BatchSimulationRunner
     /// nicht zufällig denselben Seed erzeugen - keine kryptographische
     /// Anforderung, nur Kollisionsvermeidung für die Praxis.
     /// </summary>
-    private static int DeriveSeed(int baseSeed, int pairingIndex, int setupIndex) =>
+    /// <summary>Wiederverwendete leere Instanz statt einer Neuzuteilung je Partie, falls (theoretisch) kein <see cref="MatchResult.HeroActionCountsByHeroId"/> vorhanden ist - in der Praxis liefert <see cref="MatchController"/> immer eine (ggf. leere) Zuordnung.</summary>
+    private static readonly IReadOnlyDictionary<string, HeroActionCounts> EmptyHeroActionCounts = new Dictionary<string, HeroActionCounts>();
+
+    /// <remarks>
+    /// Öffentlich, damit eine einzelne Partie eines Batch-Laufs gezielt
+    /// nachgespielt werden kann (Konsolenmodus "batch-match", Godot-Oberfläche):
+    /// Paarungsindex = Zeile der Paarungs-CSV (0-basiert, ohne Kopfzeile),
+    /// Ausgangslagen-Index = Position in <see cref="AusgangslagenGenerator.GenerateAllSetups"/>.
+    /// </remarks>
+    public static int DeriveSeed(int baseSeed, int pairingIndex, int setupIndex) =>
         unchecked(baseSeed * 1_000_003 + pairingIndex * 10_007 + setupIndex);
 
-    private static MatchOutcome PlayOne(GameSetup setup, TacticsCore.Board.Board board, AgentConfiguration agents, int seed)
+    private static MatchResult PlayOne(GameSetup setup, TacticsCore.Board.Board board, AgentConfiguration agents, int seed, bool recordReplay)
     {
         var state = AusgangslagenGenerator.BuildGameState(setup, board);
-        var controller = new MatchController(state, agents.CreateTeamAAgent(), agents.CreateTeamBAgent(), seed);
-        var result = controller.Run(setup.StartingTeam);
-
-        return new MatchOutcome(result.Winner, result.EndReason, result.RoundsPlayed, result.TeamAResult.RemainingHitPointsFraction, result.TeamBResult.RemainingHitPointsFraction);
+        var controller = new MatchController(state, agents.CreateTeamAAgent(), agents.CreateTeamBAgent(), seed, recordReplay);
+        return controller.Run(setup.StartingTeam);
     }
+
+    private static MatchOutcome ToOutcome(MatchResult result) =>
+        new(
+            result.Winner,
+            result.EndReason,
+            result.RoundsPlayed,
+            result.TeamAResult.RemainingHitPointsFraction,
+            result.TeamBResult.RemainingHitPointsFraction,
+            result.HeroActionCountsByHeroId ?? EmptyHeroActionCounts,
+            result.RoundLimitResolution,
+            result.Seed,
+            result.StartingTeam,
+            result.TeamAResult.SurvivingUnitCount,
+            result.TeamBResult.SurvivingUnitCount,
+            result.TeamAResult.TotalCurrentHitPoints,
+            result.TeamBResult.TotalCurrentHitPoints);
 
     /// <summary>Siehe Klassendokumentation, Punkt 3: rein sequentielle Nachbearbeitung in fester Index-Reihenfolge.</summary>
     private static PairingResult Aggregate(TeamComposition teamA, TeamComposition teamB, MatchOutcome[] outcomes)
     {
-        int teamAWins = 0, teamBWins = 0, draws = 0, roundLimitEndings = 0;
+        int teamAWins = 0, teamBWins = 0, draws = 0, roundLimitEndings = 0, bySurvivingHeroes = 0, byHitPointFraction = 0;
         long totalRounds = 0;
         double totalTeamAFraction = 0.0, totalTeamBFraction = 0.0;
+        var heroActionTotals = new Dictionary<string, HeroActionCounts>();
 
         foreach (var outcome in outcomes)
         {
@@ -189,9 +309,24 @@ public static class BatchSimulationRunner
                 roundLimitEndings++;
             }
 
+            if (outcome.Resolution == RoundLimitResolution.SurvivingHeroes)
+            {
+                bySurvivingHeroes++;
+            }
+            else if (outcome.Resolution == RoundLimitResolution.HitPointFraction)
+            {
+                byHitPointFraction++;
+            }
+
             totalRounds += outcome.RoundsPlayed;
             totalTeamAFraction += outcome.TeamARemainingHpFraction;
             totalTeamBFraction += outcome.TeamBRemainingHpFraction;
+
+            foreach (var (heroId, counts) in outcome.HeroActionCounts)
+            {
+                heroActionTotals.TryGetValue(heroId, out var existing);
+                heroActionTotals[heroId] = existing + counts;
+            }
         }
 
         int n = outcomes.Length;
@@ -200,6 +335,9 @@ public static class BatchSimulationRunner
             AverageRoundsPlayed: n == 0 ? 0.0 : (double)totalRounds / n,
             AverageTeamARemainingHitPointsFraction: n == 0 ? 0.0 : totalTeamAFraction / n,
             AverageTeamBRemainingHitPointsFraction: n == 0 ? 0.0 : totalTeamBFraction / n,
-            RoundLimitShare: n == 0 ? 0.0 : (double)roundLimitEndings / n);
+            RoundLimitShare: n == 0 ? 0.0 : (double)roundLimitEndings / n,
+            HeroActionTotals: heroActionTotals,
+            RoundLimitSurvivingHeroes: bySurvivingHeroes,
+            RoundLimitHitPointFraction: byHitPointFraction);
     }
 }

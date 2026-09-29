@@ -151,8 +151,42 @@ public static class CombatSystem
         }
 
         (actualTarget, damageDealt) = ApplyDamageAndHandleDefeat(state, attacker, target, damage);
+        ExposeAttackerIfProtected(state, attacker);
         return true;
     }
+
+    /// <summary>
+    /// Designentscheidung "Hugger-Überarbeitung", generisch umgesetzt: trägt der
+    /// Angreifer eine Unangreifbarkeit, die ein eigener Angriff aufhebt
+    /// (<see cref="EffectTemplate.TargetingProtectionSuspendedByAttackRounds"/>),
+    /// erhält er einen Markereffekt "Exponiert" mit dieser Dauer. Die Dauer zählt
+    /// zu Beginn seiner eigenen Züge herunter (siehe EffectSystem.TickDurationsOfSource):
+    /// Dauer 1 = angreifbar bis zum Beginn seines nächsten eigenen Zugs, also genau
+    /// eine Runde. Ein erneuter Angriff frischt den Marker auf. Der Schutzeffekt
+    /// selbst bleibt bestehen. Kein Replay-Eintrag für das Anlegen (das Kampfsystem
+    /// führt kein Protokoll); das Ablaufen protokolliert der Dauer-Tick wie üblich.
+    /// </summary>
+    private static void ExposeAttackerIfProtected(GameState state, Unit attacker)
+    {
+        if (attacker.IsDefeated)
+        {
+            return;
+        }
+
+        var rounds = state.GetEffectsOnUnit(attacker.Id)
+            .Where(e => e.PreventsBeingTargetedByEnemies && e.TargetingProtectionSuspendedByAttackRounds is not null)
+            .Select(e => e.TargetingProtectionSuspendedByAttackRounds!.Value)
+            .DefaultIfEmpty(0)
+            .Max();
+        if (rounds > 0)
+        {
+            EffectSystem.Apply(state, ActiveEffect.OnUnit(attacker, attacker, new EffectTemplate(
+                Name: ExposedEffectName, IsInstant: false, Duration: rounds, Stacking: StackingRule.RefreshDuration, SuspendsTargetingProtection: true)));
+        }
+    }
+
+    /// <summary>Name des Markereffekts - bewusst NICHT der Name des Schutzeffekts, sonst würde ihn die Kopplung gleichnamiger Instanzen (EffectSystem.RemoveEffectAndLinkedCounterpart) mitentfernen.</summary>
+    public const string ExposedEffectName = "Exponiert";
 
     /// <summary>
     /// Zentrale Schadens-/Niederlage-Behandlung OHNE Sichtlinien-Umleitung -
@@ -162,10 +196,13 @@ public static class CombatSystem
     /// Ziels an und löst bei Niederlage dieselbe Aufräum-Kaskade aus wie
     /// die andere Überladung (siehe Klassendokumentation).
     /// </summary>
-    public static void ApplyDamageAndHandleDefeat(GameState state, Unit target, int amount)
+    /// <param name="damageSource">Nur für die Kampfbilanz (<see cref="GameState.CombatStatistics"/>): Verursacher, z.B. Anwender eines Schadens über Zeit oder die vergeltende Wand; ohne Einfluss auf den Schaden.</param>
+    public static void ApplyDamageAndHandleDefeat(GameState state, Unit target, int amount, Unit? damageSource = null)
     {
         int reduced = ApplyIncomingReduction(target, amount, state);
+        int hitPointsBefore = target.CurrentHitPoints;
         target.ApplyDamage(reduced);
+        state.RecordDamage(damageSource, target, hitPointsBefore - target.CurrentHitPoints);
         if (target.IsDefeated)
         {
             HandleDefeat(state, target);
@@ -181,15 +218,43 @@ public static class CombatSystem
     /// Aufrufer wie <see cref="TryAttackDetailed"/> ein akkurates
     /// Replay-Protokoll führen können, statt den rohen, ggf. durch
     /// Modifikatoren längst überholten Ausgangswert zu loggen.
+    ///
+    /// VERGELTUNGSSCHADEN (Bachelorarbeit-Korrektur, Wand-Rework, siehe
+    /// <see cref="Effects.EffectTemplate.ReflectsFractionOfRedirectedDamage"/>):
+    /// wurde der Angriff tatsächlich umgeleitet UND trägt der dafür
+    /// verantwortliche Feld-Effekt einen Vergeltungs-Anteil, erhält
+    /// <paramref name="source"/> im Anschluss einen Bruchteil des
+    /// URSPRÜNGLICHEN, noch UNREDUZIERTEN Schadens zurück - bewusst NICHT
+    /// des bereits um die eigene Schadensreduktion gekürzten Werts, damit
+    /// sich beide Wirkungen der Wand (Selbstreduktion UND Vergeltung)
+    /// UNABHÄNGIG voneinander addieren: bei 12 eingehendem Schaden und
+    /// jeweils 50% nimmt sie 6 (Selbstreduktion) UND gibt 6 zurück
+    /// (Vergeltung auf Basis der ursprünglichen 12) - nicht nur 3 (50% von
+    /// bereits reduzierten 6), was ihre Vergeltung sonst unbeabsichtigt an
+    /// die eigene Zähigkeit gekoppelt hätte. Läuft über dieselbe zentrale
+    /// <see cref="ApplyDamageAndHandleDefeat(GameState, Unit, int)"/>-
+    /// Überladung wie jeder andere nicht-Angriffs-Schaden (kein Zwei-Wege-
+    /// Redirect möglich, kein Sonderfall für die Aufräum-Kaskade nötig).
     /// </summary>
     public static (Unit ActualTarget, int DamageApplied) ApplyDamageAndHandleDefeat(GameState state, Unit source, Unit target, int amount)
     {
-        var actualTarget = ResolveRedirect(state, source, target);
+        var (actualTarget, redirectEffect) = ResolveRedirect(state, source, target);
         int reduced = ApplyIncomingReduction(actualTarget, amount, state);
+        int hitPointsBefore = actualTarget.CurrentHitPoints;
         actualTarget.ApplyDamage(reduced);
+        state.RecordDamage(source, actualTarget, hitPointsBefore - actualTarget.CurrentHitPoints);
         if (actualTarget.IsDefeated)
         {
             HandleDefeat(state, actualTarget);
+        }
+
+        if (redirectEffect?.ReflectsFractionOfRedirectedDamage is double fraction && source.Id != actualTarget.Id && !source.IsDefeated)
+        {
+            int retaliation = (int)Math.Round(amount * fraction);
+            if (retaliation > 0)
+            {
+                ApplyDamageAndHandleDefeat(state, source, retaliation, damageSource: actualTarget);
+            }
         }
 
         return (actualTarget, reduced);
@@ -212,8 +277,23 @@ public static class CombatSystem
     /// das Zielfeld selbst ist ja ohnehin das fragliche Feld. Zielt der
     /// Angriff direkt auf die blockierende Einheit selbst, hat eine
     /// "Umleitung auf sich selbst" keine Wirkung (wird unten übersprungen).
+    ///
+    /// NUR GEGNER (Bachelorarbeit-Designentscheidung): umgeleitet werden nur
+    /// Angriffe, deren Angreifer einem ANDEREN Team angehört als die Einheit,
+    /// die die Umleitung gesetzt hat. Vorher wurde das Team nicht geprüft:
+    /// Verbündete der Wand, die einen Gegner auf ihrem Feld angriffen oder durch
+    /// ihr Feld schossen, trafen die eigene Wand und erhielten die Vergeltung
+    /// (Stichprobe: in rund einem Viertel der Partien mit Wand), und die Wand
+    /// traf sich bei einem Angriff auf einen Gegner auf ihrem eigenen Feld
+    /// selbst. Die Teamprüfung behebt beide Fälle.
+    ///
+    /// Liefert neben dem tatsächlichen Ziel auch den dafür verantwortlichen
+    /// Feld-Effekt zurück (<c>null</c>, wenn keine Umleitung stattfand) -
+    /// der Aufrufer braucht ihn, um einen ggf. konfigurierten
+    /// Vergeltungsschaden auszuwerten (siehe
+    /// <see cref="Effects.EffectTemplate.ReflectsFractionOfRedirectedDamage"/>).
     /// </summary>
-    private static Unit ResolveRedirect(GameState state, Unit source, Unit target)
+    private static (Unit ActualTarget, ActiveEffect? RedirectEffect) ResolveRedirect(GameState state, Unit source, Unit target)
     {
         var fieldsToCheck = source.Position == target.Position
             ? new[] { target.Position }
@@ -221,20 +301,26 @@ public static class CombatSystem
 
         foreach (var field in fieldsToCheck)
         {
-            var blocker = state.GetEffectsOnField(field).FirstOrDefault(e => e.RedirectsAttacksToSource);
-            if (blocker is null)
+            foreach (var blocker in state.GetEffectsOnField(field))
             {
-                continue;
-            }
+                if (!blocker.RedirectsAttacksToSource)
+                {
+                    continue;
+                }
 
-            var redirectUnit = state.Units.FirstOrDefault(u => u.Id == blocker.SourceUnitId);
-            if (redirectUnit is not null && !redirectUnit.IsDefeated && redirectUnit.Id != target.Id)
-            {
-                return redirectUnit; // nächstgelegenes blockierendes Feld auf der Linie gewinnt
+                // NUR ANGRIFFE VON GEGNERN werden umgeleitet (Designentscheidung,
+                // siehe Klassendokumentation von DefaultHeroes.Wand): Angriffe von
+                // Verbündeten des Umleitungsziels - und von ihm selbst - gehen an ihr
+                // eigentliches Ziel und lösen keine Vergeltung aus.
+                var redirectUnit = state.Units.FirstOrDefault(u => u.Id == blocker.SourceUnitId);
+                if (redirectUnit is not null && !redirectUnit.IsDefeated && redirectUnit.Id != target.Id && redirectUnit.Team != source.Team)
+                {
+                    return (redirectUnit, blocker); // nächstgelegenes blockierendes Feld auf der Linie gewinnt
+                }
             }
         }
 
-        return target;
+        return (target, null);
     }
 
     private static int ApplyIncomingReduction(Unit target, int amount, GameState state)
@@ -262,6 +348,7 @@ public static class CombatSystem
         state.RemoveUnit(unit);
         EffectSystem.RemoveEffectsRelatedTo(state, unit.Id);
         DespawnCloneOfCreator(state, unit);
+        EffectSystem.ReleaseAttachmentsOfLastHeroes(state); // Behebung der Regellücke "angehefteter letzter Held"
     }
 
     private static void DespawnCloneOfCreator(GameState state, Unit creator)

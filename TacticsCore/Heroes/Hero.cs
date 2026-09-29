@@ -39,6 +39,13 @@ public sealed class Hero : Unit, IHasPassiveStatContribution
     /// <summary>Ausschließlich für <see cref="Abilities.AbilitySystem"/> gedacht.</summary>
     internal void SetAbilityCooldown(int rounds) => AbilityCooldownRemaining = rounds;
 
+    /// <inheritdoc />
+    internal override Unit CopyForSimulation()
+    {
+        var copy = new Hero(Id, Team, Position, Definition) { AbilityCooldownRemaining = AbilityCooldownRemaining };
+        return CopyStateTo(copy);
+    }
+
     /// <summary>Ausschließlich für <see cref="Match.MatchController"/> gedacht (Zeitpunkt siehe dort und EffectSystem).</summary>
     internal void TickAbilityCooldown()
     {

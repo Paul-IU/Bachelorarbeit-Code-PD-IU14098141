@@ -8,13 +8,13 @@ namespace TacticsCoreGodot.UI;
 /// <summary>
 /// Aufstellung EINES Teams: je Startfeld ein Held (Vorgabe Punkt 6: "je drei
 /// Helden aus dem Katalog wählen und den Startfeldern zuordnen"), plus die
-/// Wahl, ob dieses Team von einem Menschen oder vom Zufallsagenten
-/// gesteuert wird.
+/// Wahl, wer dieses Team steuert (Mensch oder einer der Agenten des
+/// Batch-Laufs, siehe <see cref="TeamControllers"/>).
 /// </summary>
 public partial class TeamSetupPanel : VBoxContainer
 {
     private readonly List<OptionButton> _heroDropdowns = new();
-    private CheckBox _humanCheckBox = null!;
+    private OptionButton _controllerDropdown = null!;
     private Label _errorLabel = null!;
     private IReadOnlyList<HeroDefinition> _catalogHeroes = Array.Empty<HeroDefinition>();
     private IReadOnlyList<HexCoordinate> _fields = Array.Empty<HexCoordinate>();
@@ -53,10 +53,16 @@ public partial class TeamSetupPanel : VBoxContainer
             _heroDropdowns.Add(dropdown);
         }
 
-        var humanRow = new HBoxContainer();
-        _humanCheckBox = new CheckBox { Text = "Von einem Menschen gesteuert", ButtonPressed = true };
-        humanRow.AddChild(_humanCheckBox);
-        AddChild(humanRow);
+        var controllerRow = new HBoxContainer();
+        controllerRow.AddChild(new Label { Text = "Gesteuert von:", CustomMinimumSize = new Vector2(90, 0) });
+        _controllerDropdown = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        foreach (var controller in TeamControllers.All)
+        {
+            _controllerDropdown.AddItem(TeamControllers.Describe(controller));
+        }
+        _controllerDropdown.Selected = 0; // Mensch - bisheriges Standardverhalten
+        controllerRow.AddChild(_controllerDropdown);
+        AddChild(controllerRow);
 
         _errorLabel = new Label { Modulate = new Color(1f, 0.4f, 0.4f) };
         AddChild(_errorLabel);
@@ -79,7 +85,7 @@ public partial class TeamSetupPanel : VBoxContainer
 
         _errorLabel.Text = "";
         var assignments = _fields.Zip(selectedHeroes, (field, hero) => (hero, field)).ToList();
-        choice = new TeamSetupChoice(assignments, _humanCheckBox.ButtonPressed);
+        choice = new TeamSetupChoice(assignments, TeamControllers.All[_controllerDropdown.Selected]);
         return true;
     }
 }

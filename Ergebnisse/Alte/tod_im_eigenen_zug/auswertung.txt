@@ -1,0 +1,34 @@
+
+=== Agent: byactiontype ===
+Paarungen mit veraendertem Ergebnis: 1692 von 3570
+Durchschnittliche Partiedauer: vorher 35,796  nachher 35,796  Differenz -0,001 Runden
+Anteil Rundenlimit-Ende:       vorher 3,92 %  nachher 3,92 %
+
+Held              vorher  nachher  Δ Korrektur  Δ Seed-Rauschen
+elfe               60,66    60,64        -0,02            -0,13
+elementarmagier    58,91    58,96         0,05            -0,14
+illusionist        57,90    57,91         0,01            -0,11
+berserker          56,15    56,15         0,00             0,14
+schildtraeger      47,56    47,52        -0,04            -0,02
+bogenschuetze      45,13    45,15         0,02             0,20
+wand               42,75    42,73        -0,02             0,32
+hugger             40,53    40,54         0,01             0,01
+musiker            40,40    40,39        -0,01            -0,26
+RMS ueber 9 Helden: Korrektur 0,02 pp, Seed-Rauschen 0,18 pp; groesste Aenderung durch Korrektur 0,05 pp
+
+=== Agent: uniform ===
+Paarungen mit veraendertem Ergebnis: 1272 von 3570
+Durchschnittliche Partiedauer: vorher 41,268  nachher 41,265  Differenz -0,003 Runden
+Anteil Rundenlimit-Ende:       vorher 6,56 %  nachher 6,57 %
+
+Held              vorher  nachher  Δ Korrektur  Δ Seed-Rauschen
+elfe               62,36    62,34        -0,02             0,13
+elementarmagier    57,62    57,63         0,01            -0,15
+berserker          53,68    53,68         0,00            -0,16
+illusionist        53,64    53,64         0,00             0,21
+schildtraeger      51,26    51,25        -0,01             0,08
+bogenschuetze      49,63    49,63         0,00            -0,05
+wand               47,92    47,92         0,00            -0,15
+hugger             38,84    38,83        -0,01            -0,10
+musiker            35,04    35,06         0,02             0,19
+RMS ueber 9 Helden: Korrektur 0,01 pp, Seed-Rauschen 0,14 pp; groesste Aenderung durch Korrektur -0,02 pp
