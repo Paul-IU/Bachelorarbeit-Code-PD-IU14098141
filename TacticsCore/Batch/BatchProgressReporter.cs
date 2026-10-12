@@ -99,9 +99,13 @@ public sealed class BatchProgressReporter
             File.WriteAllText(temp, $"{line}{Environment.NewLine}Stand: {DateTime.Now:yyyy-MM-dd HH:mm:ss}{Environment.NewLine}", new System.Text.UTF8Encoding(true));
             File.Move(temp, _progressFilePath, overwrite: true);
         }
-        catch (IOException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             // Ein gerade lesender Prozess darf die Anzeige nicht abbrechen - nächste Aktualisierung versucht es erneut.
+            // UnauthorizedAccessException ausdrücklich mit abgefangen (Korrektur nach einem Absturz): Windows meldet
+            // "Zugriff verweigert", wenn die Zieldatei gerade geöffnet ist (z.B. vom Editor neu eingelesen wird). Das ist
+            // KEINE IOException - vorher brach deshalb ein defensiver Lauf nach 2 h 17 min ab. Die Fortschrittsanzeige
+            // darf einen Lauf nie beenden.
         }
     }
 

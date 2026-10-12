@@ -1,0 +1,18 @@
+=== schildtraeger_dmg_10 (aggressive) ===
+Laufzeit 124 min 1 s
+Partiedauer 11,23 Runden (Basis 11,34, -0,11), Rundenlimit 0,63 % (Basis 0,64 %, -0,01 pp)
+Rauschen aggressive: RMS nan pp, groesste Einzelabweichung nan pp
+Held               Basis  Variante    Δ pp    Rang   Einordnung
+berserker          68,07     67,43   -0,64       1   (kein Rauschwert)
+wand               63,35     63,15   -0,20       2   (kein Rauschwert)
+schildtraeger      55,40     58,18   +2,78       3   (kein Rauschwert)  <- veraendert
+bogenschuetze      54,67     54,16   -0,51       4   (kein Rauschwert)
+illusionist        51,19     50,71   -0,48       5   (kein Rauschwert)
+elfe               44,27     43,47   -0,80       6   (kein Rauschwert)
+elementarmagier    42,15     42,04   -0,11       7   (kein Rauschwert)
+musiker            41,47     41,77   +0,30       8   (kein Rauschwert)
+hugger             29,41     29,09   -0,32       9   (kein Rauschwert)
+Uebrige acht Helden: RMS der Differenz 0,47 pp, groesste -0,80 pp
+Rangverschiebungen: keine
+Kompositionen mit schildtraeger (28): Mittel +1,85 pp, Mittel |Δ| 1,85 pp, Groesstwert +8,00 pp (elementarmagier+musiker+schildtraeger), kleinster -0,02 pp
+Kompositionen ohne schildtraeger (56): Mittel -0,93 pp, Mittel |Δ| 0,93 pp

@@ -57,6 +57,37 @@ public class BatchProgressReporterTests
         }
     }
 
+    /// <summary>
+    /// "Zugriff verweigert" beim Ersetzen der Datei (hier nachgestellt über eine
+    /// schreibgeschützte Zieldatei; im echten Fall war sie im Editor geöffnet) darf
+    /// den Lauf nicht abbrechen - vorher brach ein defensiver Lauf daran ab.
+    /// </summary>
+    [Fact]
+    public void ZugriffVerweigert_BrichtNichtAb()
+    {
+        string pfad = Path.Combine(Path.GetTempPath(), $"fortschritt_test_{Guid.NewGuid():N}.txt");
+        try
+        {
+            File.WriteAllText(pfad, "alt");
+            File.SetAttributes(pfad, FileAttributes.ReadOnly);
+            var reporter = new BatchProgressReporter(pfad, verifyNameIndependence: false, interval: TimeSpan.Zero);
+
+            var fehler = Record.Exception(() =>
+            {
+                reporter.Report(new BatchProgress(0, 10, 1, 100, TimeSpan.FromSeconds(1)));
+                reporter.Finish(new BatchProgress(10, 10, 100, 100, TimeSpan.FromSeconds(50)));
+            });
+
+            Assert.Null(fehler);
+        }
+        finally
+        {
+            File.SetAttributes(pfad, FileAttributes.Normal);
+            File.Delete(pfad);
+            File.Delete(pfad + ".tmp");
+        }
+    }
+
     /// <summary>Die Anzeige hat keinen Einfluss auf die Ergebnisse - mit und ohne Reporter bitgleich, auch mehrfädig.</summary>
     [Fact]
     public void Ergebnisse_SindMitUndOhneAnzeigeIdentisch()
