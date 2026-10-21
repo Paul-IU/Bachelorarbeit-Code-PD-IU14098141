@@ -26,8 +26,18 @@ public static class AusgangslagenGenerator
     /// Verschachtelung der drei Schleifen bestimmt (Team-A-Permutation
     /// äußerste, beginnendes Team innerste Schleife) - reproduzierbar bei
     /// jedem Aufruf.
+    ///
+    /// SEITEN VERTAUSCHEN (<paramref name="swapSides"/>, Bachelorarbeit, Messung
+    /// des Seitenvorteils; Standard aus): Team A startet auf Blüte B, Team B auf
+    /// Blüte A. Jedes Startfeld wird dafür durch sein Spiegelbild ersetzt
+    /// (<see cref="TacticsCore.Board.Board.MirrorBetweenBlossoms"/>), die
+    /// Reihenfolge der Felder bleibt die des Normalfalls. Ausgangslage i ist damit
+    /// exakt das Spiegelbild der Ausgangslage i des Normalfalls - gleiche Helden
+    /// auf gespiegelten Feldern, gleiches beginnendes Team; über den
+    /// Ausgangslagen-Index bleibt auch der Seed je Partie gleich. Ohne Option
+    /// ist das Ergebnis bitgenau das bisherige.
     /// </summary>
-    public static IReadOnlyList<GameSetup> GenerateAllSetups(TeamComposition teamA, TeamComposition teamB, TacticsCore.Board.Board board)
+    public static IReadOnlyList<GameSetup> GenerateAllSetups(TeamComposition teamA, TeamComposition teamB, TacticsCore.Board.Board board, bool swapSides = false)
     {
         var teamAFields = board.GetStartFields(FieldType.BlossomA)
             .OrderBy(f => f.Coordinate.Q).ThenBy(f => f.Coordinate.R)
@@ -37,6 +47,12 @@ public static class AusgangslagenGenerator
             .OrderBy(f => f.Coordinate.Q).ThenBy(f => f.Coordinate.R)
             .Select(f => f.Coordinate)
             .ToList();
+
+        if (swapSides)
+        {
+            teamAFields = teamAFields.Select(TacticsCore.Board.Board.MirrorBetweenBlossoms).ToList();
+            teamBFields = teamBFields.Select(TacticsCore.Board.Board.MirrorBetweenBlossoms).ToList();
+        }
 
         var teamAPermutations = Permutations.GenerateAll(teamA.Heroes);
         var teamBPermutations = Permutations.GenerateAll(teamB.Heroes);

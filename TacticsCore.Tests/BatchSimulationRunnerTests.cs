@@ -43,6 +43,28 @@ public class BatchSimulationRunnerTests
     }
 
     /// <summary>
+    /// Option "Seiten vertauschen" (Messung des Seitenvorteils): ohne Option
+    /// bleibt der Lauf bitgenau der bisherige; mit Option werden dieselben
+    /// Partien (gleiche Anzahl, gleiche Seeds, gleiches beginnendes Team) auf
+    /// gespiegelten Startfeldern gespielt.
+    /// </summary>
+    [Fact]
+    public void SeitenVertauschen_OhneOptionUnveraendert_MitOptionGleicheSeedsUndStartteams()
+    {
+        var board = new GameBoard();
+        var pairings = new[] { (TrioA, TrioA) };
+        var agents = AgentConfiguration.FromName(AgentNames.Aggressive);
+
+        var standard = BatchSimulationRunner.Run(board, pairings, agents, baseSeed: 2026, maxSetupsPerPairing: 12, recordMatches: true);
+        var normal = BatchSimulationRunner.Run(board, pairings, agents, baseSeed: 2026, maxSetupsPerPairing: 12, recordMatches: true, swapSides: false);
+        var vertauscht = BatchSimulationRunner.Run(board, pairings, agents, baseSeed: 2026, maxSetupsPerPairing: 12, recordMatches: true, swapSides: true);
+
+        Assert.Equal(standard.Matches!, normal.Matches!);
+        Assert.Equal(standard.Matches!.Select(m => (m.SetupIndex, m.Seed, m.StartingTeam)),
+                     vertauscht.Matches!.Select(m => (m.SetupIndex, m.Seed, m.StartingTeam)));
+    }
+
+    /// <summary>
     /// Dieselbe Prüfung wie <see cref="VollstaendigerLaufUeberSpiegelpaarungMitAntithetischerPaarbildung_ErgibtGenau50ProzentSiegquote"/>,
     /// hier mit <see cref="AgentConfiguration.UniformVsUniform"/> statt
     /// <see cref="AgentConfiguration.RandomVsRandom"/> - die exakte 50%-

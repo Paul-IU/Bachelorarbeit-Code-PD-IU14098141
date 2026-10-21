@@ -129,4 +129,42 @@ public class BoardTests
         Assert.Contains(new HexCoordinate(-1, 1), neighborCoords);
         Assert.Contains(new HexCoordinate(1, 0), neighborCoords);
     }
+
+    [Fact]
+    public void MirrorBetweenBlossoms_BildetDasSpielfeldAufSichSelbstAbUndVertauschtDieBlueten()
+    {
+        var board = new GameBoard();
+
+        foreach (var field in board.Fields)
+        {
+            var mirror = board.GetField(GameBoard.MirrorBetweenBlossoms(field.Coordinate));
+
+            Assert.NotNull(mirror);
+            Assert.Equal(field.IsStartField, mirror!.IsStartField);
+            var erwartet = field.Type switch
+            {
+                FieldType.BlossomA => FieldType.BlossomB,
+                FieldType.BlossomB => FieldType.BlossomA,
+                _ => field.Type,
+            };
+            Assert.Equal(erwartet, mirror.Type);
+            Assert.Equal(field.Coordinate, GameBoard.MirrorBetweenBlossoms(mirror.Coordinate)); // zweimal gespiegelt = Ausgangsfeld
+        }
+
+        Assert.Equal(new HexCoordinate(1, 2), GameBoard.MirrorBetweenBlossoms(new HexCoordinate(-1, 3)));
+    }
+
+    [Fact]
+    public void MirrorBetweenBlossoms_ErhaeltDieNachbarschaft()
+    {
+        var board = new GameBoard();
+
+        foreach (var field in board.Fields)
+        {
+            var nachbarn = board.GetNeighbors(field.Coordinate).Select(n => GameBoard.MirrorBetweenBlossoms(n.Coordinate)).ToHashSet();
+            var nachbarnDesSpiegelbilds = board.GetNeighbors(GameBoard.MirrorBetweenBlossoms(field.Coordinate)).Select(n => n.Coordinate).ToHashSet();
+
+            Assert.Equal(nachbarnDesSpiegelbilds, nachbarn);
+        }
+    }
 }

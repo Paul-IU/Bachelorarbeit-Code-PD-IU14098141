@@ -109,6 +109,44 @@ public class CompositionAndSetupTests
         Assert.NotEqual(setup.StartingTeam, swapped.StartingTeam);
     }
 
+    [Fact]
+    public void AusgangslagenGenerator_SeitenVertauscht_IstJeIndexDasSpiegelbildDesNormalfalls()
+    {
+        var board = new GameBoard();
+        var catalog = DefaultHeroes.CreateDefaultCatalog();
+        var compositions = CompositionGenerator.GenerateAllCompositions(catalog);
+        var teamA = compositions[0];
+        var teamB = compositions[50];
+
+        var normal = AusgangslagenGenerator.GenerateAllSetups(teamA, teamB, board);
+        var vertauscht = AusgangslagenGenerator.GenerateAllSetups(teamA, teamB, board, swapSides: true);
+
+        Assert.Equal(normal.Count, vertauscht.Count);
+        for (int i = 0; i < normal.Count; i++)
+        {
+            Assert.Equal(normal[i].StartingTeam, vertauscht[i].StartingTeam);
+            Assert.Equal(normal[i].TeamAUnits.Select(u => (u.Hero.Id, GameBoard.MirrorBetweenBlossoms(u.Position))),
+                         vertauscht[i].TeamAUnits.Select(u => (u.Hero.Id, u.Position)));
+            Assert.Equal(normal[i].TeamBUnits.Select(u => (u.Hero.Id, GameBoard.MirrorBetweenBlossoms(u.Position))),
+                         vertauscht[i].TeamBUnits.Select(u => (u.Hero.Id, u.Position)));
+            Assert.All(vertauscht[i].TeamAUnits, u => Assert.Equal(FieldType.BlossomB, board.GetField(u.Position)!.Type));
+            Assert.All(vertauscht[i].TeamBUnits, u => Assert.Equal(FieldType.BlossomA, board.GetField(u.Position)!.Type));
+        }
+    }
+
+    [Fact]
+    public void AusgangslagenGenerator_OhneOption_IstUnveraendertDerNormalfall()
+    {
+        var board = new GameBoard();
+        var compositions = CompositionGenerator.GenerateAllCompositions(DefaultHeroes.CreateDefaultCatalog());
+
+        var standard = AusgangslagenGenerator.GenerateAllSetups(compositions[3], compositions[7], board);
+        var explizit = AusgangslagenGenerator.GenerateAllSetups(compositions[3], compositions[7], board, swapSides: false);
+
+        Assert.Equal(standard.Select(SetupKey), explizit.Select(SetupKey));
+        Assert.All(standard, s => Assert.All(s.TeamAUnits, u => Assert.Equal(FieldType.BlossomA, board.GetField(u.Position)!.Type)));
+    }
+
     private static string SetupKey(GameSetup setup) =>
         string.Join("|", setup.TeamAUnits.Select(u => $"{u.Hero.Id}@{u.Position}")) + ">" +
         string.Join("|", setup.TeamBUnits.Select(u => $"{u.Hero.Id}@{u.Position}")) + ">" +

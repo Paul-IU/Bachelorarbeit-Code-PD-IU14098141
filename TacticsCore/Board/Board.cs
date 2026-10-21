@@ -134,6 +134,22 @@ public sealed class Board
         }
     }
 
+    /// <summary>
+    /// Spiegelbild eines Felds in der jeweils anderen Blüte: Punktspiegelung
+    /// (Drehung um 180°) um die Feldmitte, (q, r) -> (-q, 5 - r). Sie bildet
+    /// das Spielfeld auf sich selbst ab, jedes Feld von Blüte A auf ein Feld
+    /// von Blüte B (und umgekehrt), Startfeld auf Startfeld, und vertauscht die
+    /// beiden Verbindungsfelder (-1,3) und (1,2) (siehe die Geometrie in der
+    /// Klassendokumentation; geprüft in BoardTests). Als Drehung erhält sie
+    /// Abstände UND den Umlaufsinn - eine Partie auf gespiegelten Feldern ist
+    /// geometrisch dieselbe Partie, nur mit vertauschten Blüten.
+    ///
+    /// Verwendung (Bachelorarbeit, Messung des Seitenvorteils): Option
+    /// "Seiten vertauschen" im <see cref="Setup.AusgangslagenGenerator"/>.
+    /// </summary>
+    public static HexCoordinate MirrorBetweenBlossoms(HexCoordinate coordinate) =>
+        new(-coordinate.Q, 5 - coordinate.R);
+
     /// <summary>Alle Startfelder einer bestimmten Blüte (bzw. eines Typs).</summary>
     public IEnumerable<Field> GetStartFields(FieldType type) =>
         Fields.Where(f => f.IsStartField && f.Type == type);

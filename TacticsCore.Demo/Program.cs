@@ -673,7 +673,11 @@ static void RunFullBaseline(string[] allArgs)
     // Schalter an beliebiger Stelle erlaubt, die übrigen Parameter bleiben positionsgebunden.
     const string verifyFlag = "--verify-name-independence";
     bool verifyNameIndependence = allArgs.Contains(verifyFlag, StringComparer.OrdinalIgnoreCase);
-    var cliArgs = allArgs.Where(a => !a.Equals(verifyFlag, StringComparison.OrdinalIgnoreCase)).ToList();
+    // Seiten vertauschen (Messung des Seitenvorteils): Team A auf Blüte B, siehe AusgangslagenGenerator.GenerateAllSetups.
+    const string swapSidesFlag = "--swap-sides";
+    bool swapSides = allArgs.Contains(swapSidesFlag, StringComparer.OrdinalIgnoreCase);
+    var cliArgs = allArgs.Where(a => !a.Equals(verifyFlag, StringComparison.OrdinalIgnoreCase)
+                                     && !a.Equals(swapSidesFlag, StringComparison.OrdinalIgnoreCase)).ToList();
 
     // Katalogvariante (Varianten-Läufe): "--variant <name>", siehe HeroCatalogVariants.FromName.
     const string variantFlag = "--variant";
@@ -687,7 +691,7 @@ static void RunFullBaseline(string[] allArgs)
 
     if (cliArgs.Count is < 3 or > 5 || (cliArgs.Count >= 4 && !int.TryParse(cliArgs[3], out _)))
     {
-        Console.WriteLine($"Verwendung: full-baseline <paarungenCsv> <kompositionenCsv> <heldenCsv> [baseSeed] [agent] [{verifyFlag}] [{variantFlag} <name>]");
+        Console.WriteLine($"Verwendung: full-baseline <paarungenCsv> <kompositionenCsv> <heldenCsv> [baseSeed] [agent] [{verifyFlag}] [{swapSidesFlag}] [{variantFlag} <name>]");
         Console.WriteLine();
         Console.WriteLine("  paarungenCsv       Zieldatei, eine Zeile je Paarung (siehe CsvExporter.ExportPairingResults).");
         Console.WriteLine("  kompositionenCsv   Zieldatei, eine Zeile je Komposition mit ihrer über alle Paarungen aggregierten Siegquote.");
@@ -698,6 +702,9 @@ static void RunFullBaseline(string[] allArgs)
         Console.WriteLine("                     Optional (Standard aus): spielt jede Partie zusätzlich mit vertauschten Team-Etiketten und prüft,");
         Console.WriteLine("                     ob Sieger, Rundenzahl und Rest-Lebenspunkte spiegelbildlich sind. Meldet jede Abweichung einzeln");
         Console.WriteLine("                     mit dem ersten abweichenden Zug. Die CSV-Ergebnisse bleiben unverändert; etwa doppelte Laufzeit.");
+        Console.WriteLine($"  {swapSidesFlag}");
+        Console.WriteLine("                     Optional (Standard aus): Team A startet auf Blüte B, Team B auf Blüte A (Spiegelbild jeder");
+        Console.WriteLine("                     Ausgangslage). Kompositionen, Ausgangslagen, beginnendes Team und Seeds bleiben gleich.");
         Console.WriteLine($"  {variantFlag} <name>");
         Console.WriteLine("                     Optional: Katalogvariante statt des Basiskatalogs, Form <heldId>_<dmg|hp|ability>_<prozent>,");
         Console.WriteLine("                     z.B. schildtraeger_dmg_10 (siehe HeroCatalogVariants.FromName). Der Basiskatalog bleibt unverändert.");
@@ -733,6 +740,7 @@ static void RunFullBaseline(string[] allArgs)
     Console.WriteLine($"Basis-Seed: {baseSeed}   Agent: {agentConfiguration.Name}   Threads: {Environment.ProcessorCount}");
     Console.WriteLine($"Etiketten-Prüfung: {(verifyNameIndependence ? "an (jede Partie zusätzlich mit vertauschten Etiketten)" : "aus")}");
     Console.WriteLine($"Katalog: {variantName ?? "Basiskatalog"}");
+    Console.WriteLine($"Seiten: {(swapSides ? "vertauscht (Team A auf Blüte B, Team B auf Blüte A)" : "normal (Team A auf Blüte A)")}");
     Console.WriteLine();
 
     // Fortschrittsanzeige (siehe BatchProgressReporter): dieselbe Terminalzeile
@@ -747,7 +755,8 @@ static void RunFullBaseline(string[] allArgs)
         baseSeed: baseSeed, maxSetupsPerPairing: null, degreeOfParallelism: Environment.ProcessorCount,
         onProgress: progressReporter.Report,
         verifyNameIndependence: verifyNameIndependence,
-        recordMatches: true);
+        recordMatches: true,
+        swapSides: swapSides);
     progressReporter.Finish(new BatchProgress(pairings.Count, pairings.Count, totalMatches, totalMatches, result.ElapsedTime));
 
     Console.WriteLine();

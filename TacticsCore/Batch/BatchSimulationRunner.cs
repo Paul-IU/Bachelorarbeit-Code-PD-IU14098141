@@ -113,6 +113,12 @@ public static class BatchSimulationRunner
     /// Reihenfolge übernommen - die Zeilenfolge hängt damit nicht von der
     /// Threadanzahl ab. Beeinflusst die Aggregate nicht.
     /// </param>
+    /// <param name="swapSides">
+    /// Seiten vertauschen (Standard aus): Team A startet auf Blüte B, Team B auf
+    /// Blüte A, über die Spiegelsymmetrie des Spielfelds (siehe
+    /// <see cref="AusgangslagenGenerator.GenerateAllSetups"/>). Kompositionen,
+    /// Ausgangslagen-Reihenfolge, beginnendes Team und Seeds bleiben gleich.
+    /// </param>
     public static SimulationRunResult Run(
         TacticsCore.Board.Board board,
         IReadOnlyList<(TeamComposition TeamA, TeamComposition TeamB)> pairings,
@@ -123,7 +129,8 @@ public static class BatchSimulationRunner
         int degreeOfParallelism = 1,
         Action<BatchProgress>? onProgress = null,
         bool verifyNameIndependence = false,
-        bool recordMatches = false)
+        bool recordMatches = false,
+        bool swapSides = false)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -133,7 +140,7 @@ public static class BatchSimulationRunner
         var setupsPerPairing = pairings
             .Select(p =>
             {
-                var setups = AusgangslagenGenerator.GenerateAllSetups(p.TeamA, p.TeamB, board);
+                var setups = AusgangslagenGenerator.GenerateAllSetups(p.TeamA, p.TeamB, board, swapSides);
                 return maxSetupsPerPairing is int max && setups.Count > max ? setups.Take(max).ToList() : setups;
             })
             .ToList();
