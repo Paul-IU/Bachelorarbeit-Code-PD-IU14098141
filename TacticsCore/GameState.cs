@@ -155,6 +155,7 @@ public sealed class GameState
         copy.CurrentTurnBudget = CurrentTurnBudget;
         copy.CurrentRoundOrder = CurrentRoundOrder; // unveränderliche Liste, Teilen ist unbedenklich
         copy.StartingTeam = StartingTeam;
+        copy.SidesSwapped = SidesSwapped;
         return copy;
     }
 
@@ -328,6 +329,23 @@ public sealed class GameState
     /// vorauszuberechnen.
     /// </summary>
     public Team? StartingTeam { get; private set; }
+
+    /// <summary>
+    /// Ob die Seiten vertauscht sind: Team A ist auf Blüte B gestartet, Team B auf
+    /// Blüte A (Option "Seiten vertauschen", siehe
+    /// <see cref="Setup.AusgangslagenGenerator.GenerateAllSetups"/>). Gesetzt beim
+    /// Aufbau aus einer Ausgangslage (<see cref="Setup.AusgangslagenGenerator.BuildGameState"/>),
+    /// sonst false (Team A auf Blüte A).
+    /// </summary>
+    public bool SidesSwapped { get; internal set; }
+
+    /// <summary>
+    /// Die Blüte, auf der <paramref name="team"/> gestartet ist ("eigene Blüte").
+    /// Grundlage der seitensymmetrischen Gleichstandsregel der heuristischen Agenten
+    /// (<see cref="Agents.HeuristicAgent.CandidateKey"/>).
+    /// </summary>
+    public FieldType HomeBlossomOf(Team team) =>
+        (team == Team.TeamA) != SidesSwapped ? FieldType.BlossomA : FieldType.BlossomB;
 
     /// <summary>Ausschließlich für <see cref="Match.MatchController"/> gedacht.</summary>
     internal void SetCurrentRound(int roundNumber) => CurrentRoundNumber = roundNumber;

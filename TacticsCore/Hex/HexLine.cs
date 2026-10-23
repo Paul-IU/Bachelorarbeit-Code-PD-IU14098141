@@ -20,10 +20,27 @@ namespace TacticsCore.Hex;
 /// bitgenau reproduzierbar für dieselben Eingaben, es gibt hier also keine
 /// versteckte Plattform- oder Zeitabhängigkeit. Der einzige Sonderfall sind
 /// exakte Kantenfälle (die gedachte Linie verläuft genau auf der Grenze
-/// zwischen zwei Feldern) - dafür wird der Startpunkt vor der Interpolation
-/// um einen winzigen, fest gewählten Betrag verschoben (siehe
-/// <c>Epsilon</c>), sodass die Rundung IMMER deterministisch in dieselbe
-/// Richtung auflöst, statt von Gleitkomma-Rundungsartefakten abzuhängen.
+/// zwischen zwei Feldern) - dafür wird die Linie vor der Interpolation um
+/// einen winzigen Betrag verschoben (siehe <c>Epsilon</c>), sodass die
+/// Rundung IMMER deterministisch auflöst, statt von Gleitkomma-
+/// Rundungsartefakten abzuhängen.
+///
+/// SPIEGELSYMMETRIE (Bachelorarbeit, Korrektur des Seitenvorteils): Früher
+/// wurde nur der Startpunkt um einen FESTEN Vektor des Spielfelds
+/// verschoben (ε·(+1, +2, −3) in Würfelkoordinaten). Bei einer um 180°
+/// gedrehten Linie (Spielfeld-Spiegelung zwischen den Blüten, siehe
+/// <see cref="Board.Board.MirrorBetweenBlossoms"/>) zeigte diese Verschiebung
+/// damit relativ zur Linie in die andere Richtung, und Kantenfälle lösten
+/// sich auf der einen Seite des Spielfelds anders auf als auf der anderen
+/// (66 von 240 Feldpaaren). Jetzt wird die GANZE Linie relativ zu ihrer
+/// eigenen Richtung d verschoben: quer zur Linie (immer zur selben Seite in
+/// Blickrichtung) und zusätzlich minimal in Blickrichtung. Beide Anteile
+/// drehen sich mit der Linie mit, die gespiegelte Linie liefert so exakt die
+/// gespiegelten Felder (geprüft für alle Feldpaare in HexLineTests).
+/// Inhaltlich gilt dieselbe Regel wie bisher: Linie von Mittelpunkt zu
+/// Mittelpunkt, jeder Zwischenpunkt auf das nächste Feld gerundet; nur bei
+/// exakten Kantenfällen kann ein anderes der beiden gleich nahen Felder
+/// gewählt werden.
 /// </summary>
 public static class HexLine
 {
@@ -46,11 +63,16 @@ public static class HexLine
         double ax = a.Q, az = a.R, ay = -ax - az;
         double bx = b.Q, bz = b.R, by = -bx - bz;
 
-        // Epsilon-Verschiebung des Startpunkts, um exakte Kantenfälle
-        // deterministisch aufzulösen (Summe der drei Verschiebungen bleibt 0).
-        ax += Epsilon;
-        ay += Epsilon * 2;
-        az -= Epsilon * 3;
+        // Verschiebung der ganzen Linie relativ zu ihrer Richtung d (siehe
+        // Klassendokumentation, SPIEGELSYMMETRIE): quer = (dy − dz, dz − dx, dx − dy)
+        // steht senkrecht auf d, längs = d. Beide Summen bleiben 0 (Würfelkoordinaten),
+        // und beide Vektoren wechseln mit d das Vorzeichen.
+        double dx = bx - ax, dy = by - ay, dz = bz - az;
+        double qx = Epsilon * (dy - dz) + Epsilon * Epsilon * dx;
+        double qy = Epsilon * (dz - dx) + Epsilon * Epsilon * dy;
+        double qz = Epsilon * (dx - dy) + Epsilon * Epsilon * dz;
+        ax += qx; ay += qy; az += qz;
+        bx += qx; by += qy; bz += qz;
 
         var result = new List<HexCoordinate>(distance + 1);
         for (int i = 0; i <= distance; i++)

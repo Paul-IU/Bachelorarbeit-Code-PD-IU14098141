@@ -32,11 +32,22 @@ namespace TacticsCore.Agents;
 /// DETERMINISMUS UND ETIKETTEN-UNABHÄNGIGKEIT: die übergebene Random-Instanz
 /// wird NICHT benutzt. Gleich bewertete Zugfolgen entscheidet die erste in
 /// einer festen Reihenfolge (<see cref="CandidateKey"/>): Art des Schritts,
-/// dann Zielfeld (q, r), dann eigene vor gegnerischen Einheiten, Helden vor
+/// dann Zielfeld (q, r) AUS SICHT DER EIGENEN BLÜTE, dann eigene vor gegnerischen Einheiten, Helden vor
 /// Klonen, dann Id (bei Klonen die ihres Erzeugers) - dieselbe Idee wie in
 /// <see cref="AbilitySystem.GetLegalAbilityUses"/>. Innerhalb eines Teams bleibt
 /// die Id-Reihenfolge bei einem Teamtausch erhalten, die Reihenfolge hängt
 /// also nicht davon ab, welches Team die kleineren Ids trägt.
+///
+/// SEITENSYMMETRIE (Bachelorarbeit, Korrektur des Seitenvorteils): Früher wurden
+/// die Zielfelder nach ABSOLUTER Koordinate sortiert. Kleines r liegt bei Blüte A;
+/// bei Gleichstand zog eine Einheit von Team A damit bevorzugt zur eigenen
+/// Startreihe zurück, eine von Team B auf den Gegner zu - die Seiten folgten nicht
+/// derselben Regel (gemessen: Blüte A gewann rund 58-61 % der Spiegelpartien).
+/// Jetzt wird das Zielfeld für ein Team, dessen eigene Blüte B ist
+/// (<see cref="GameState.HomeBlossomOf"/>), vor dem Vergleich über
+/// <see cref="Board.Board.MirrorBetweenBlossoms"/> gespiegelt. Beide Seiten sortieren
+/// damit aus Sicht ihrer eigenen Blüte, und eine Partie mit vertauschten Seiten
+/// verläuft Zug für Zug spiegelbildlich.
 /// </summary>
 public sealed class HeuristicAgent : IAgent
 {
@@ -121,11 +132,16 @@ public sealed class HeuristicAgent : IAgent
     {
         var list = new List<(TurnAction, CandidateKey)>();
 
+        // Zielfelder aus Sicht der eigenen Blüte (siehe Klassendokumentation, SEITENSYMMETRIE).
+        bool spiegeln = state.HomeBlossomOf(unit.Team) == TacticsCore.Board.FieldType.BlossomB;
+        HexCoordinate Sicht(HexCoordinate c) => spiegeln ? TacticsCore.Board.Board.MirrorBetweenBlossoms(c) : c;
+
         if (canMove)
         {
             foreach (var target in unit.GetLegalMoves(state))
             {
-                list.Add((new TurnAction.Move(target), new CandidateKey(0, target.Q, target.R, 0, 0, Guid.Empty, string.Empty)));
+                var sicht = Sicht(target);
+                list.Add((new TurnAction.Move(target), new CandidateKey(0, sicht.Q, sicht.R, 0, 0, Guid.Empty, string.Empty)));
             }
         }
 
@@ -133,7 +149,7 @@ public sealed class HeuristicAgent : IAgent
         {
             foreach (var target in unit.GetLegalAttacks(state))
             {
-                list.Add((new TurnAction.Attack(target), CandidateKey.ForUnit(1, target, unit.Team, string.Empty)));
+                list.Add((new TurnAction.Attack(target), CandidateKey.ForUnit(1, target, unit.Team, string.Empty, Sicht)));
             }
 
             if (unit is Hero hero)
@@ -143,8 +159,8 @@ public sealed class HeuristicAgent : IAgent
                     string mode = option.Mode?.Id ?? string.Empty;
                     var key = option.Target switch
                     {
-                        AbilityTarget.UnitTarget u => CandidateKey.ForUnit(2, u.Unit, unit.Team, mode),
-                        AbilityTarget.FieldTarget f => new CandidateKey(2, f.Field.Q, f.Field.R, 0, 0, Guid.Empty, mode),
+                        AbilityTarget.UnitTarget u => CandidateKey.ForUnit(2, u.Unit, unit.Team, mode, Sicht),
+                        AbilityTarget.FieldTarget f => new CandidateKey(2, Sicht(f.Field).Q, Sicht(f.Field).R, 0, 0, Guid.Empty, mode),
                         _ => new CandidateKey(2, 0, 0, 0, 0, Guid.Empty, mode),
                     };
                     list.Add((new TurnAction.UseAbility(option.Target, option.Mode), key));
@@ -198,8 +214,12 @@ public sealed class HeuristicAgent : IAgent
     /// </summary>
     internal readonly record struct CandidateKey(int Kind, int Q, int R, int Relation, int IsCloneRank, Guid Id, string Mode) : IComparable<CandidateKey>
     {
-        public static CandidateKey ForUnit(int kind, Unit target, Team actorTeam, string mode) =>
-            new(kind, target.Position.Q, target.Position.R, target.Team == actorTeam ? 0 : 1, target.IsClone ? 1 : 0, target.CreatorId ?? target.Id, mode);
+        /// <param name="sicht">Abbildung des Zielfelds in die Sicht der eigenen Blüte (Identität oder Spiegelung).</param>
+        public static CandidateKey ForUnit(int kind, Unit target, Team actorTeam, string mode, Func<HexCoordinate, HexCoordinate> sicht)
+        {
+            var feld = sicht(target.Position);
+            return new(kind, feld.Q, feld.R, target.Team == actorTeam ? 0 : 1, target.IsClone ? 1 : 0, target.CreatorId ?? target.Id, mode);
+        }
 
         public int CompareTo(CandidateKey other)
         {

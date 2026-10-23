@@ -1,0 +1,15 @@
+# Hetzner CCX43 (16 vCPU, --threads 16): defensive, ca. 55 lokale Stunden (12 Threads) -> ca. 41 h
+# Basislauf mit Etiketten-Prüfung und Seitenprüfung zuerst, dann Schaden und Lebenspunkte
+defensive basis 2026 --verify-name-independence
+defensive basis 2026 --swap-sides
+defensive schildtraeger_dmg_10
+defensive schildtraeger_dmg_-10
+defensive schildtraeger_dmg_5
+defensive schildtraeger_dmg_-5
+defensive schildtraeger_dmg_2.5
+defensive schildtraeger_dmg_-2.5
+defensive schildtraeger_hp_10
+defensive schildtraeger_hp_-10
+defensive schildtraeger_hp_5
+defensive schildtraeger_hp_-5
+defensive schildtraeger_hp_2.5

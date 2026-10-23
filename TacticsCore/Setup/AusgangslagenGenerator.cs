@@ -91,6 +91,12 @@ public static class AusgangslagenGenerator
     {
         var state = new GameState(board);
 
+        // Eigene Blüte je Team merken (Seiten vertauscht, wenn Team A auf Blüte B
+        // startet) - für die seitensymmetrische Gleichstandsregel der heuristischen
+        // Agenten, siehe GameState.HomeBlossomOf.
+        state.SidesSwapped = setup.TeamAUnits.Count > 0
+            && board.GetField(setup.TeamAUnits[0].Position)?.Type == FieldType.BlossomB;
+
         int idCounter = 1;
         foreach (var (hero, position) in setup.TeamAUnits)
         {

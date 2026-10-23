@@ -1,6 +1,7 @@
 using TacticsCore.Abilities;
 using TacticsCore.Combat;
 using TacticsCore.Heroes;
+using TacticsCore.Hex;
 using TacticsCore.Match;
 using TacticsCore.Units;
 
@@ -91,11 +92,16 @@ public sealed class ThresholdHeuristicAgent : IAgent
     {
         var list = new List<(TurnAction, CandidateKey)>();
 
+        // Zielfelder aus Sicht der eigenen Blüte - dieselbe seitensymmetrische Regel wie im HeuristicAgent.
+        bool spiegeln = state.HomeBlossomOf(unit.Team) == TacticsCore.Board.FieldType.BlossomB;
+        HexCoordinate Sicht(HexCoordinate c) => spiegeln ? TacticsCore.Board.Board.MirrorBetweenBlossoms(c) : c;
+
         if (canMove)
         {
             foreach (var target in unit.GetLegalMoves(state))
             {
-                list.Add((new TurnAction.Move(target), new CandidateKey(0, target.Q, target.R, 0, 0, Guid.Empty, string.Empty)));
+                var sicht = Sicht(target);
+                list.Add((new TurnAction.Move(target), new CandidateKey(0, sicht.Q, sicht.R, 0, 0, Guid.Empty, string.Empty)));
             }
         }
 
@@ -103,7 +109,7 @@ public sealed class ThresholdHeuristicAgent : IAgent
         {
             foreach (var target in unit.GetLegalAttacks(state))
             {
-                list.Add((new TurnAction.Attack(target), CandidateKey.ForUnit(1, target, unit.Team, string.Empty)));
+                list.Add((new TurnAction.Attack(target), CandidateKey.ForUnit(1, target, unit.Team, string.Empty, Sicht)));
             }
 
             if (unit is Hero hero)
@@ -113,8 +119,8 @@ public sealed class ThresholdHeuristicAgent : IAgent
                     string mode = option.Mode?.Id ?? string.Empty;
                     var key = option.Target switch
                     {
-                        AbilityTarget.UnitTarget u => CandidateKey.ForUnit(2, u.Unit, unit.Team, mode),
-                        AbilityTarget.FieldTarget f => new CandidateKey(2, f.Field.Q, f.Field.R, 0, 0, Guid.Empty, mode),
+                        AbilityTarget.UnitTarget u => CandidateKey.ForUnit(2, u.Unit, unit.Team, mode, Sicht),
+                        AbilityTarget.FieldTarget f => new CandidateKey(2, Sicht(f.Field).Q, Sicht(f.Field).R, 0, 0, Guid.Empty, mode),
                         _ => new CandidateKey(2, 0, 0, 0, 0, Guid.Empty, mode),
                     };
                     list.Add((new TurnAction.UseAbility(option.Target, option.Mode), key));
@@ -159,8 +165,11 @@ public sealed class ThresholdHeuristicAgent : IAgent
     /// <summary>Stabile, etikettenunabhängige Sortierung (wie <see cref="HeuristicAgent"/>).</summary>
     private readonly record struct CandidateKey(int Kind, int Q, int R, int Relation, int IsCloneRank, Guid Id, string Mode) : IComparable<CandidateKey>
     {
-        public static CandidateKey ForUnit(int kind, Unit target, Team actorTeam, string mode) =>
-            new(kind, target.Position.Q, target.Position.R, target.Team == actorTeam ? 0 : 1, target.IsClone ? 1 : 0, target.CreatorId ?? target.Id, mode);
+        public static CandidateKey ForUnit(int kind, Unit target, Team actorTeam, string mode, Func<HexCoordinate, HexCoordinate> sicht)
+        {
+            var feld = sicht(target.Position);
+            return new(kind, feld.Q, feld.R, target.Team == actorTeam ? 0 : 1, target.IsClone ? 1 : 0, target.CreatorId ?? target.Id, mode);
+        }
 
         public int CompareTo(CandidateKey other)
         {

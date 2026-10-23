@@ -371,7 +371,14 @@ public static class AbilitySystem
 
         // Wirkungen, die konkrete EINHEITEN auf dem/den Feld(ern) treffen
         // (Sofortschaden/-heilung, DoT, Buff/Debuff) - stabil sortiert nach
-        // (q, r, UnitId) angewendet. AreaFilter (siehe AreaTargetFilter)
+        // (q, r, UnitId) AUS SICHT DER EIGENEN BLÜTE des Anwenders angewendet
+        // (Bachelorarbeit, Korrektur des Seitenvorteils: für ein Team, dessen
+        // eigene Blüte B ist, wird (q, r) vorher über Board.MirrorBetweenBlossoms
+        // gespiegelt). Die Reihenfolge bestimmt die Reihenfolge der Instanzen in
+        // der Effektliste - und davon hängt ab, welche Instanz eines Mehrfach-Buffs
+        // beim Ablauf als "Gegenpart" mit entfernt wird (siehe
+        // EffectSystem.RemoveEffectAndLinkedCounterpart, z.B. Kampflied). Mit
+        // absolutem (q, r) war das zwischen den Seiten nicht symmetrisch. AreaFilter (siehe AreaTargetFilter)
         // schränkt dabei generisch ein, welche Team-Zugehörigkeit relativ
         // zum Anwender betroffen ist (Standard: alle, wie bisher).
         if (template.InstantDamage is not null || template.InstantHeal is not null || template.DamagePerTick is not null || template.StatModifiers is not null || template.BonusDamageForNextAttack is not null)
@@ -391,7 +398,10 @@ public static class AbilitySystem
                 // als die Quelle, ein verbündeter Flächen-Buff bleibt also
                 // unberührt.
                 .Where(u => !EffectiveStats.PreventsBeingTargetedBy(u, source.Team, state))
-                .OrderBy(u => u.Position.Q).ThenBy(u => u.Position.R).ThenBy(u => u.Id)
+                .Select(u => (Einheit: u, Sicht: state.HomeBlossomOf(source.Team) == TacticsCore.Board.FieldType.BlossomB
+                    ? TacticsCore.Board.Board.MirrorBetweenBlossoms(u.Position) : u.Position))
+                .OrderBy(e => e.Sicht.Q).ThenBy(e => e.Sicht.R).ThenBy(e => e.Einheit.Id)
+                .Select(e => e.Einheit)
                 .ToList();
 
             foreach (var unit in affectedUnits)

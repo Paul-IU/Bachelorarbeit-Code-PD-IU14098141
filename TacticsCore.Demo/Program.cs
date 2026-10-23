@@ -676,8 +676,29 @@ static void RunFullBaseline(string[] allArgs)
     // Seiten vertauschen (Messung des Seitenvorteils): Team A auf Blüte B, siehe AusgangslagenGenerator.GenerateAllSetups.
     const string swapSidesFlag = "--swap-sides";
     bool swapSides = allArgs.Contains(swapSidesFlag, StringComparer.OrdinalIgnoreCase);
+    // Stichprobe (Plattformvergleich lokal/Cloud-VM): nur 14 gleichmäßig über die Liste verteilte Paarungen
+    // (jede 255. von 3.570) x 72 Ausgangslagen = 1.008 Partien, sonst identisch.
+    const string sampleFlag = "--sample";
+    bool sample = allArgs.Contains(sampleFlag, StringComparer.OrdinalIgnoreCase);
     var cliArgs = allArgs.Where(a => !a.Equals(verifyFlag, StringComparison.OrdinalIgnoreCase)
-                                     && !a.Equals(swapSidesFlag, StringComparison.OrdinalIgnoreCase)).ToList();
+                                     && !a.Equals(swapSidesFlag, StringComparison.OrdinalIgnoreCase)
+                                     && !a.Equals(sampleFlag, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    // Anzahl paralleler Partien: "--threads <n>", Standard 12. Hat keinen Einfluss auf die Ergebnisse
+    // (jede Partie hat ihren eigenen Seed und festen Ergebnisplatz, siehe BatchSimulationRunner).
+    const string threadsFlag = "--threads";
+    int threads = 12;
+    int threadsIndex = cliArgs.FindIndex(a => a.Equals(threadsFlag, StringComparison.OrdinalIgnoreCase));
+    if (threadsIndex >= 0)
+    {
+        if (threadsIndex + 1 >= cliArgs.Count || !int.TryParse(cliArgs[threadsIndex + 1], out threads) || threads < 1)
+        {
+            Console.WriteLine($"{threadsFlag} erwartet eine positive ganze Zahl.");
+            return;
+        }
+
+        cliArgs.RemoveRange(threadsIndex, 2);
+    }
 
     // Katalogvariante (Varianten-Läufe): "--variant <name>", siehe HeroCatalogVariants.FromName.
     const string variantFlag = "--variant";
@@ -691,7 +712,7 @@ static void RunFullBaseline(string[] allArgs)
 
     if (cliArgs.Count is < 3 or > 5 || (cliArgs.Count >= 4 && !int.TryParse(cliArgs[3], out _)))
     {
-        Console.WriteLine($"Verwendung: full-baseline <paarungenCsv> <kompositionenCsv> <heldenCsv> [baseSeed] [agent] [{verifyFlag}] [{swapSidesFlag}] [{variantFlag} <name>]");
+        Console.WriteLine($"Verwendung: full-baseline <paarungenCsv> <kompositionenCsv> <heldenCsv> [baseSeed] [agent] [{verifyFlag}] [{swapSidesFlag}] [{sampleFlag}] [{threadsFlag} <n>] [{variantFlag} <name>]");
         Console.WriteLine();
         Console.WriteLine("  paarungenCsv       Zieldatei, eine Zeile je Paarung (siehe CsvExporter.ExportPairingResults).");
         Console.WriteLine("  kompositionenCsv   Zieldatei, eine Zeile je Komposition mit ihrer über alle Paarungen aggregierten Siegquote.");
@@ -705,6 +726,11 @@ static void RunFullBaseline(string[] allArgs)
         Console.WriteLine($"  {swapSidesFlag}");
         Console.WriteLine("                     Optional (Standard aus): Team A startet auf Blüte B, Team B auf Blüte A (Spiegelbild jeder");
         Console.WriteLine("                     Ausgangslage). Kompositionen, Ausgangslagen, beginnendes Team und Seeds bleiben gleich.");
+        Console.WriteLine($"  {sampleFlag}");
+        Console.WriteLine("                     Optional: nur 14 gleichmäßig verteilte Paarungen (jede 255.) x 72 = 1.008 Partien, für den");
+        Console.WriteLine("                     Partie-für-Partie-Vergleich zwischen zwei Rechnern (siehe vm/vergleiche_partien.py).");
+        Console.WriteLine($"  {threadsFlag} <n>");
+        Console.WriteLine("                     Optional, Standard 12: Anzahl parallel simulierter Partien. Ändert die Ergebnisse nicht.");
         Console.WriteLine($"  {variantFlag} <name>");
         Console.WriteLine("                     Optional: Katalogvariante statt des Basiskatalogs, Form <heldId>_<dmg|hp|ability>_<prozent>,");
         Console.WriteLine("                     z.B. schildtraeger_dmg_10 (siehe HeroCatalogVariants.FromName). Der Basiskatalog bleibt unverändert.");
@@ -732,14 +758,23 @@ static void RunFullBaseline(string[] allArgs)
         : HeroCatalogVariants.FromName(DefaultHeroes.CreateDefaultCatalog(), variantName);
     var allCompositions = CompositionGenerator.GenerateAllCompositions(catalog);
     var pairings = GenerateAllUniquePairingsIncludingMirrors(allCompositions);
+    if (sample)
+    {
+        pairings = pairings.Where((_, i) => i % 255 == 0).ToList();
+    }
     int totalMatches = pairings.Count * 72;
 
     Console.WriteLine("=== TacticsCore - Vollständiger Basislauf ===");
     Console.WriteLine();
     Console.WriteLine($"{allCompositions.Count} Kompositionen -> {pairings.Count} eindeutige Paarungen (davon {allCompositions.Count} Spiegelpaarungen) x 72 Ausgangslagen = {totalMatches} Partien.");
-    Console.WriteLine($"Basis-Seed: {baseSeed}   Agent: {agentConfiguration.Name}   Threads: {Environment.ProcessorCount}");
+    Console.WriteLine($"Basis-Seed: {baseSeed}   Agent: {agentConfiguration.Name}   Threads: {threads}");
     Console.WriteLine($"Etiketten-Prüfung: {(verifyNameIndependence ? "an (jede Partie zusätzlich mit vertauschten Etiketten)" : "aus")}");
     Console.WriteLine($"Katalog: {variantName ?? "Basiskatalog"}");
+    if (sample)
+    {
+        Console.WriteLine($"STICHPROBE: {pairings.Count} Paarungen (jede 255.), Paarungsindex in den Ausgabedateien bezieht sich auf diese Teilliste.");
+    }
+
     Console.WriteLine($"Seiten: {(swapSides ? "vertauscht (Team A auf Blüte B, Team B auf Blüte A)" : "normal (Team A auf Blüte A)")}");
     Console.WriteLine();
 
@@ -752,7 +787,7 @@ static void RunFullBaseline(string[] allArgs)
     Console.WriteLine($"Fortschrittsdatei: {progressFilePath}");
     var result = BatchSimulationRunner.Run(
         board, pairings, agentConfiguration,
-        baseSeed: baseSeed, maxSetupsPerPairing: null, degreeOfParallelism: Environment.ProcessorCount,
+        baseSeed: baseSeed, maxSetupsPerPairing: null, degreeOfParallelism: threads,
         onProgress: progressReporter.Report,
         verifyNameIndependence: verifyNameIndependence,
         recordMatches: true,
