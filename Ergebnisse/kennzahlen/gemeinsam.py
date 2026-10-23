@@ -108,3 +108,45 @@ def fmt(x, nd=2, vz=False):
     """Zahl im deutschen Format für die Ausgabetabellen."""
     s = f"{x:+.{nd}f}" if vz else f"{x:.{nd}f}"
     return s.replace(".", ",")
+
+
+# ---- Siegquoten (einheitlich, Bachelorarbeit 13.10.2026): Unentschieden zählen als halber Sieg.
+UNENTSCHIEDEN_GEWICHT = 0.5
+
+
+def helden_quote(paarungen, gewicht=UNENTSCHIEDEN_GEWICHT):
+    """Bereinigte Siegquote je Held in %: nur Paarungen mit dem Helden auf GENAU EINER Seite (wie die Heldendatei),
+    Siege der eigenen Seite + gewicht * Unentschieden, geteilt durch Partien. gewicht = 0 reproduziert exakt
+    die Spalte 'Siegquote' der Heldendatei (Unentschieden zählen dort nicht als Sieg)."""
+    siege, spiele = {}, {}
+    for r in paarungen:
+        a, b = set(r["TeamA"].split("+")), set(r["TeamB"].split("+"))
+        p, d = int(r["Partien"]), int(r["Unentschieden"])
+        for held in a ^ b:
+            eigene = int(r["SiegeTeamA"]) if held in a else int(r["SiegeTeamB"])
+            siege[held] = siege.get(held, 0.0) + eigene + gewicht * d
+            spiele[held] = spiele.get(held, 0) + p
+    return {h: 100.0 * siege[h] / spiele[h] for h in siege}
+
+
+def komp_quote(paarungen, gewicht=UNENTSCHIEDEN_GEWICHT):
+    """Siegquote je Komposition in % ohne Spiegelpaarung; Unentschieden mit gewicht."""
+    siege, spiele = {}, {}
+    for r in paarungen:
+        a, b = r["TeamA"], r["TeamB"]
+        if a == b:
+            continue
+        p, d = int(r["Partien"]), int(r["Unentschieden"])
+        for k, eigene in ((a, int(r["SiegeTeamA"])), (b, int(r["SiegeTeamB"]))):
+            siege[k] = siege.get(k, 0.0) + eigene + gewicht * d
+            spiele[k] = spiele.get(k, 0) + p
+    return {k: 100.0 * siege[k] / spiele[k] for k in siege}
+
+
+def vorzeichen_schwelle(n, alpha=0.05):
+    """Kleinstes k mit P(X >= k) <= alpha für X ~ Binomial(n, 1/2) (einseitiger Vorzeichentest); None, wenn keins existiert (n < 5)."""
+    from math import comb
+    for k in range(n + 1):
+        if sum(comb(n, i) for i in range(k, n + 1)) / 2 ** n <= alpha:
+            return k
+    return None

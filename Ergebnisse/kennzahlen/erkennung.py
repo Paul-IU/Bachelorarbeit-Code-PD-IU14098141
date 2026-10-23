@@ -5,56 +5,25 @@ Aufruf:  python erkennung.py   (nach teilmengen.py, dessen Übersicht hier geles
 Ausgabe: erkennung_ergebnisse.md
 
 KRITERIUM VOLLSTÄNDIGER LAUF (gegen den Basislauf Seed 2026 desselben Agenten):
-  (a) Die bereinigte Siegquote des Schildträgers (Heldendatei: nur Partien mit ihm auf genau
-      einer Seite) verschiebt sich in Richtung der Manipulation, UND
+  (a) Die bereinigte Siegquote des Schildträgers (nur Partien mit ihm auf genau einer Seite,
+      seit 13.10.2026 Unentschieden als halber Sieg, aus der Paarungsdatei) verschiebt sich in Richtung der Manipulation, UND
   (b) mindestens k der Kompositionen mit Schildträger bewegen sich in dieselbe Richtung.
       Siegquote der Kompositionen ohne Spiegelpaarung, Unentschieden als halber Sieg.
       Kompositionen ohne jede Änderung zählen nicht; k ist die Schwelle des einseitigen
       Vorzeichentests mit alpha = 0,05 für n = Anzahl der veränderten Kompositionen
       (kleinstes k mit P(X >= k | n, 1/2) <= 0,05; für n = 28 ist k = 19).
 
-KRITERIUM SIMULATIONSUMFANG: kleinste Stichprobe aus 1.000 / 10.000 / 50.000 / 100.000, bei der
-der Schildträger in >= 95 % der 100 Wiederholungen richtig verschoben ist (aus teilmengen_ergebnisse.md).
+KRITERIUM SIMULATIONSUMFANG: kleinste Stichprobe aus 1.000 / 10.000 / 50.000 / 100.000, bei der dasselbe
+Kriterium (a) UND (b) in >= 95 % der 100 Wiederholungen erfüllt ist (aus teilmengen_ergebnisse.md).
 """
 import os
 import re
-from math import comb
 
-from gemeinsam import (AGENTEN, KENNZAHLEN, VERAENDERTER_HELD, basis_von, finde_laeufe, fmt, kompositionen,
-                       lade_csv, lauf_name, zahl)
+from gemeinsam import (AGENTEN, KENNZAHLEN, VERAENDERTER_HELD, basis_von, finde_laeufe, fmt, helden_quote,
+                       komp_quote, lade_csv, lauf_name, vorzeichen_schwelle)
 
-ALPHA = 0.05
 ARTEN = ("dmg", "hp", "ability")
 STUFEN = (10.0, 5.0, 2.5, -2.5, -5.0, -10.0)
-
-
-def schwelle(n):
-    """Kleinstes k mit P(X >= k) <= alpha für X ~ Binomial(n, 1/2); None, wenn kein k das erreicht."""
-    for k in range(n + 1):
-        if sum(comb(n, i) for i in range(k, n + 1)) / 2 ** n <= ALPHA:
-            return k
-    return None
-
-
-def komp_quote(paarungen):
-    """Siegquote je Komposition ohne Spiegelpaarung, Unentschieden als halber Sieg (in %)."""
-    komps = kompositionen(paarungen)
-    siege = dict.fromkeys(komps, 0.0)
-    spiele = dict.fromkeys(komps, 0)
-    for r in paarungen:
-        a, b = r["TeamA"], r["TeamB"]
-        if a == b:
-            continue
-        p, d = int(r["Partien"]), int(r["Unentschieden"])
-        siege[a] += int(r["SiegeTeamA"]) + 0.5 * d
-        siege[b] += int(r["SiegeTeamB"]) + 0.5 * d
-        spiele[a] += p
-        spiele[b] += p
-    return {k: 100.0 * siege[k] / spiele[k] for k in komps}
-
-
-def st_quote(praefix):
-    return next(zahl(r["Siegquote"]) * 100 for r in lade_csv(praefix + "_helden.csv") if r["Held"] == VERAENDERTER_HELD)
 
 
 def lies_teilmengen():
@@ -80,7 +49,8 @@ def main():
     matrix = {}
     for a in AGENTEN:
         basis = basis_von(next(iter(v for k, v in varianten.items() if k[0] == a)), laeufe)
-        b_st, b_k = st_quote(basis[4]), komp_quote(lade_csv(basis[4] + "_paarungen.csv"))
+        b_paar = lade_csv(basis[4] + "_paarungen.csv")
+        b_st, b_k = helden_quote(b_paar)[VERAENDERTER_HELD], komp_quote(b_paar)
         for art in ARTEN:
             for p in STUFEN:
                 v = varianten.get((a, art, p))
@@ -90,14 +60,15 @@ def main():
                     zeilen.append(f"| {a} | {name} | – | – | – | – | – | Lauf fehlt | – |")
                     continue
                 richtung = 1 if p > 0 else -1
-                d_st = st_quote(v[4]) - b_st
-                v_k = komp_quote(lade_csv(v[4] + "_paarungen.csv"))
+                v_paar = lade_csv(v[4] + "_paarungen.csv")
+                d_st = helden_quote(v_paar)[VERAENDERTER_HELD] - b_st
+                v_k = komp_quote(v_paar)
                 mit = [k for k in v_k if VERAENDERTER_HELD in k.split("+")]
                 diffs = [v_k[k] - b_k[k] for k in mit]
                 rein = sum(1 for d in diffs if d * richtung > 0)
                 gegen = sum(1 for d in diffs if d * richtung < 0)
                 gleich = len(diffs) - rein - gegen
-                k = schwelle(rein + gegen)
+                k = vorzeichen_schwelle(rein + gegen)
                 erfuellt = d_st * richtung > 0 and k is not None and rein >= k
                 matrix[(art, p, a)] = "erkannt" if erfuellt else "nicht erkannt"
                 zeilen.append(f"| {a} | {name} | {fmt(d_st, 2, True)} | {rein} | {gegen} | {gleich} | "
@@ -112,12 +83,13 @@ def main():
 
     out = ["# Erkennung der Ungleichgewichte", "",
            "Erzeugt von `Ergebnisse/kennzahlen/erkennung.py`. Je Variantenlauf gegen den Basislauf (Seed 2026) desselben Agenten.", "",
+           "Unentschieden zählen überall als halber Sieg (seit 13.10.2026).", "",
            "**Kriterium vollständiger Lauf:** (a) bereinigte Siegquote des Schildträgers verschiebt sich in Richtung der "
            "Manipulation UND (b) mindestens k der veränderten Kompositionen mit Schildträger bewegen sich in dieselbe Richtung "
            "(Siegquote ohne Spiegelpaarung, Unentschieden als halber Sieg). Unveränderte Kompositionen zählen nicht; "
            "k = Schwelle des einseitigen Vorzeichentests, α = 0,05, für n = Anzahl veränderter Kompositionen (n = 28 → k = 19).", "",
-           "**Kriterium Simulationsumfang:** kleinste Stichprobe aus 1.000 / 10.000 / 50.000 / 100.000 Partien, bei der der "
-           "Schildträger in ≥ 95 % der 100 Wiederholungen in Richtung der Manipulation verschoben ist (aus `teilmengen_ergebnisse.md`).", "",
+           "**Kriterium Simulationsumfang:** kleinste Stichprobe aus 1.000 / 10.000 / 50.000 / 100.000 Partien, bei der dasselbe "
+           "Kriterium (a) UND (b) in ≥ 95 % der 100 Wiederholungen erfüllt ist (aus `teilmengen_ergebnisse.md`).", "",
            "## Übersicht", ""] + uebersicht + ["", "## Einzelwerte", ""] + zeilen
     with open(os.path.join(KENNZAHLEN, "erkennung_ergebnisse.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(out) + "\n")

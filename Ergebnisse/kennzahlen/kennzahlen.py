@@ -6,7 +6,11 @@ Ausgabe: kennzahlen_ergebnisse.md (alle Tabellen) und matrizen/<lauf>.csv (84x84
 
 Festlegungen (mit der Autorin/dem Autor abgestimmt am 09.10.2026):
   - Siegquote einer Komposition OHNE Spiegelpaarung (nur Partien gegen andere
-    Kompositionen, 5.976 je Komposition); Unentschieden zählen hier nicht als Sieg.
+    Kompositionen, 5.976 je Komposition).
+  - Seit 13.10.2026 zählen Unentschieden in ALLEN Siegquoten als halber Sieg (Helden und
+    Kompositionen, siehe gemeinsam.helden_quote / komp_quote). Die Heldendateien der Simulation
+    bleiben unverändert; die bereinigte Siegquote der Helden wird hier aus der Paarungsdatei
+    berechnet (bei Gewicht 0 identisch mit der Spalte 'Siegquote').
   - Standardabweichung über die fünf Seeds mit n-1.
   - Abweichung von der Erwartung (Schritt 5) als Rangdifferenz.
   - Die Seed-Basisläufe 2027-2030 werden in den Schritten 2-4 mit ausgewertet.
@@ -15,8 +19,8 @@ import os
 
 import numpy as np
 
-from gemeinsam import (AGENTEN, GRUNDWERTE, KENNZAHLEN, VERAENDERTER_HELD, basis_von, finde_laeufe, fmt,
-                       kompositionen, lade_csv, lauf_name, spearman, zahl)
+from gemeinsam import (AGENTEN, GRUNDWERTE, KENNZAHLEN, VERAENDERTER_HELD, basis_von, finde_laeufe, fmt, helden_quote,
+                       komp_quote, kompositionen, lade_csv, lauf_name, spearman, zahl)
 
 G_WERTE = (0.01, 0.02, 0.04, 0.08)
 SEEDS = (2026, 2027, 2028, 2029, 2030)
@@ -86,24 +90,16 @@ def nicht_dominiert(W):
 
 
 # ---------------------------------------------------------------- Siegquoten
-def komp_siegquote_ohne_spiegel(paarungen, komps):
-    """Siegquote je Komposition nur gegen andere Kompositionen (ohne Spiegelpaarung)."""
-    siege = dict.fromkeys(komps, 0)
-    spiele = dict.fromkeys(komps, 0)
-    for r in paarungen:
-        a, b = r["TeamA"], r["TeamB"]
-        if a == b:
-            continue
-        p = int(r["Partien"])
-        siege[a] += int(r["SiegeTeamA"])
-        siege[b] += int(r["SiegeTeamB"])
-        spiele[a] += p
-        spiele[b] += p
-    return {k: 100.0 * siege[k] / spiele[k] for k in komps}
-
-
-def helden_siegquote(praefix):
-    return {r["Held"]: zahl(r["Siegquote"]) * 100 for r in lade_csv(praefix + "_helden.csv")}
+def kendall(x, y):
+    """Kendalls Tau-a über alle Paare (wie in der bisherigen Auswertung der Basisläufe)."""
+    c = d = 0
+    n = len(x)
+    for i in range(n):
+        for j in range(i + 1, n):
+            v = (x[i] - x[j]) * (y[i] - y[j])
+            c += v > 0
+            d += v < 0
+    return (c - d) / (n * (n - 1) / 2)
 
 
 # ---------------------------------------------------------------- Hauptteil
@@ -140,8 +136,8 @@ def main():
         if seeds != list(SEEDS):
             out += [f"**{a}:** nur Seeds {seeds} vorhanden – Auswertung übersprungen.", ""]
             continue
-        hq = [helden_siegquote(l[4]) for l in sorted(seed_laeufe, key=lambda l: l[3])]
-        kq = [komp_siegquote_ohne_spiegel(erg[l]["paar"], erg[l]["komps"]) for l in sorted(seed_laeufe, key=lambda l: l[3])]
+        hq = [helden_quote(erg[l]["paar"]) for l in sorted(seed_laeufe, key=lambda l: l[3])]
+        kq = [komp_quote(erg[l]["paar"]) for l in sorted(seed_laeufe, key=lambda l: l[3])]
         out += [f"### {a}", "", "| Held | " + " | ".join(str(s) for s in SEEDS) + " | Mittel | SD |",
                 "|---|" + "---|" * (len(SEEDS) + 2)]
         for h in sorted(hq[0], key=lambda h: -hq[0][h]):
@@ -200,8 +196,8 @@ def main():
             "|---|---|---|---|"]
     for a in AGENTEN:
         l = next(l for l in laeufe if l[0] == a and l[1] == "basis" and l[3] == 2026)
-        hq = helden_siegquote(l[4])
-        kq = komp_siegquote_ohne_spiegel(erg[l]["paar"], erg[l]["komps"])
+        hq = helden_quote(erg[l]["paar"])
+        kq = komp_quote(erg[l]["paar"])
         rho_h = spearman([gws[h] for h in helden], [hq[h] for h in helden])
         komp_gws = {k: sum(gws[h] for h in k.split("+")) for k in kq}
         rho_k = spearman([komp_gws[k] for k in kq], [kq[k] for k in kq])
@@ -211,6 +207,21 @@ def main():
         txt = ", ".join(f"{h} {rang_g[h]}→{rang_s[h]} ({rang_g[h] - rang_s[h]:+d})" for h in abw)
         out.append(f"| {a} | {fmt(rho_h, 3)} | {fmt(rho_k, 3)} | {txt} |")
     out += ["", "Rangdifferenz positiv = Held steht nach Siegquote besser, als seine Grundwertsumme erwarten lässt.", ""]
+
+    # ---- Rangfolgen und Rangkorrelationen zwischen den Agenten (Basisläufe Seed 2026)
+    basis_q = {a: helden_quote(erg[next(l for l in laeufe if l[0] == a and l[1] == "basis" and l[3] == 2026)]["paar"])
+               for a in AGENTEN}
+    helden = sorted(basis_q[AGENTEN[0]])
+    out += ["## Rangfolgen und Rangkorrelationen zwischen den Agenten (Seed 2026)", "",
+            "Bereinigte Siegquote der Helden, Unentschieden als halber Sieg.", ""]
+    for a in AGENTEN:
+        out.append(f"- **{a}:** " + ", ".join(f"{h} {fmt(basis_q[a][h], 2)}" for h in sorted(helden, key=lambda h: -basis_q[a][h])))
+    out += ["", "| Paar | Spearman | Kendall |", "|---|---|---|"]
+    for i, x in enumerate(AGENTEN):
+        for y in AGENTEN[i + 1:]:
+            vx, vy = [basis_q[x][h] for h in helden], [basis_q[y][h] for h in helden]
+            out.append(f"| {x} / {y} | {fmt(spearman(vx, vy), 3)} | {fmt(kendall(vx, vy), 3)} |")
+    out.append("")
 
     with open(os.path.join(KENNZAHLEN, "kennzahlen_ergebnisse.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(out) + "\n")

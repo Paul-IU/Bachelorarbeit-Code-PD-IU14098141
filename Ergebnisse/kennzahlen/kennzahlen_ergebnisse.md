@@ -98,17 +98,17 @@ Erzeugt von `Ergebnisse/kennzahlen/kennzahlen.py`. Prozentwerte in Prozentpunkte
 
 | Held | 2026 | 2027 | 2028 | 2029 | 2030 | Mittel | SD |
 |---|---|---|---|---|---|---|---|
-| elementarmagier | 63,31 | 63,01 | 62,97 | 63,12 | 63,29 | 63,14 | 0,156 |
-| elfe | 60,29 | 60,44 | 60,41 | 60,24 | 60,03 | 60,28 | 0,163 |
-| berserker | 56,87 | 56,78 | 56,99 | 56,90 | 56,87 | 56,88 | 0,075 |
-| illusionist | 55,96 | 56,19 | 56,15 | 55,86 | 55,90 | 56,01 | 0,149 |
-| wand | 52,96 | 52,96 | 53,02 | 53,24 | 53,15 | 53,07 | 0,124 |
-| bogenschuetze | 47,69 | 48,10 | 47,88 | 47,78 | 47,73 | 47,84 | 0,164 |
-| schildtraeger | 47,23 | 46,94 | 47,25 | 47,15 | 47,24 | 47,16 | 0,130 |
-| musiker | 37,45 | 37,39 | 37,10 | 37,32 | 37,16 | 37,28 | 0,149 |
-| hugger | 28,23 | 28,19 | 28,22 | 28,39 | 28,62 | 28,33 | 0,180 |
+| elementarmagier | 63,31 | 63,01 | 62,97 | 63,12 | 63,29 | 63,14 | 0,157 |
+| elfe | 60,29 | 60,44 | 60,41 | 60,24 | 60,03 | 60,28 | 0,162 |
+| berserker | 56,88 | 56,78 | 56,99 | 56,90 | 56,87 | 56,89 | 0,075 |
+| illusionist | 55,96 | 56,19 | 56,15 | 55,86 | 55,90 | 56,01 | 0,147 |
+| wand | 52,96 | 52,96 | 53,03 | 53,24 | 53,15 | 53,07 | 0,127 |
+| bogenschuetze | 47,69 | 48,10 | 47,88 | 47,79 | 47,73 | 47,84 | 0,160 |
+| schildtraeger | 47,23 | 46,94 | 47,25 | 47,15 | 47,24 | 47,16 | 0,129 |
+| musiker | 37,45 | 37,39 | 37,10 | 37,32 | 37,16 | 37,28 | 0,151 |
+| hugger | 28,23 | 28,19 | 28,22 | 28,39 | 28,62 | 28,33 | 0,179 |
 
-Helden: mittlere SD 0,144 pp, größte 0,180 pp.
+Helden: mittlere SD 0,143 pp, größte 0,179 pp.
 Kompositionen (ohne Spiegelpaarung, n = 84): mittlere SD 0,569 pp, Median 0,568, größte 1,078 pp (berserker+elfe+musiker), kleinste 0,217 pp.
 
 Alle 84 Werte: `seed_sd_kompositionen_byactiontype.csv`.
@@ -118,16 +118,16 @@ Alle 84 Werte: `seed_sd_kompositionen_byactiontype.csv`.
 | Held | 2026 | 2027 | 2028 | 2029 | 2030 | Mittel | SD |
 |---|---|---|---|---|---|---|---|
 | elementarmagier | 62,66 | 62,50 | 62,54 | 62,54 | 62,80 | 62,61 | 0,123 |
-| elfe | 61,81 | 61,76 | 61,99 | 61,73 | 61,77 | 61,81 | 0,104 |
-| wand | 55,19 | 55,31 | 55,10 | 55,38 | 55,29 | 55,25 | 0,110 |
-| berserker | 54,75 | 54,67 | 54,63 | 54,37 | 54,75 | 54,63 | 0,156 |
+| elfe | 61,81 | 61,76 | 61,99 | 61,73 | 61,77 | 61,81 | 0,103 |
+| wand | 55,19 | 55,32 | 55,10 | 55,38 | 55,29 | 55,25 | 0,108 |
+| berserker | 54,75 | 54,67 | 54,63 | 54,37 | 54,75 | 54,63 | 0,158 |
 | bogenschuetze | 53,43 | 53,23 | 53,52 | 53,30 | 53,32 | 53,36 | 0,115 |
-| illusionist | 52,90 | 53,16 | 53,03 | 53,20 | 52,76 | 53,01 | 0,183 |
-| schildtraeger | 51,25 | 51,32 | 51,27 | 51,57 | 51,29 | 51,34 | 0,131 |
-| musiker | 34,99 | 35,03 | 35,01 | 34,98 | 35,04 | 35,01 | 0,025 |
-| hugger | 23,04 | 23,00 | 22,91 | 22,95 | 22,97 | 22,97 | 0,049 |
+| illusionist | 52,90 | 53,16 | 53,03 | 53,20 | 52,76 | 53,01 | 0,184 |
+| schildtraeger | 51,25 | 51,32 | 51,27 | 51,57 | 51,29 | 51,34 | 0,130 |
+| musiker | 34,99 | 35,03 | 35,01 | 34,98 | 35,04 | 35,01 | 0,026 |
+| hugger | 23,04 | 23,00 | 22,91 | 22,95 | 22,97 | 22,98 | 0,051 |
 
-Helden: mittlere SD 0,111 pp, größte 0,183 pp.
+Helden: mittlere SD 0,111 pp, größte 0,184 pp.
 Kompositionen (ohne Spiegelpaarung, n = 84): mittlere SD 0,521 pp, Median 0,501, größte 1,086 pp (elementarmagier+elfe+schildtraeger), kleinste 0,100 pp.
 
 Alle 84 Werte: `seed_sd_kompositionen_uniform.csv`.
@@ -332,10 +332,28 @@ z-Werte über die neun Helden (Populations-SD; die Wahl n oder n−1 ändert kei
 
 | Agent | Spearman Helden (n = 9) | Spearman Kompositionen (n = 84) | größte Abweichungen (Rang GWS → Rang Siegquote) |
 |---|---|---|---|
-| byactiontype | -0,117 | 0,214 | elfe 7→2 (+5), berserker 8→3 (+5), schildtraeger 3→7 (-4) |
+| byactiontype | -0,117 | 0,213 | elfe 7→2 (+5), berserker 8→3 (+5), schildtraeger 3→7 (-4) |
 | uniform | 0,150 | 0,382 | elfe 7→2 (+5), schildtraeger 3→7 (-4), berserker 8→4 (+4) |
 | aggressive | 0,367 | 0,494 | berserker 8→1 (+7), musiker 4→8 (-4), elementarmagier 5→7 (-2) |
-| defensive | 0,133 | 0,199 | elfe 7→1 (+6), berserker 8→2 (+6), schildtraeger 3→6 (-3) |
+| defensive | 0,133 | 0,164 | elfe 7→1 (+6), berserker 8→2 (+6), schildtraeger 3→6 (-3) |
 
 Rangdifferenz positiv = Held steht nach Siegquote besser, als seine Grundwertsumme erwarten lässt.
+
+## Rangfolgen und Rangkorrelationen zwischen den Agenten (Seed 2026)
+
+Bereinigte Siegquote der Helden, Unentschieden als halber Sieg.
+
+- **byactiontype:** elementarmagier 63,31, elfe 60,29, berserker 56,88, illusionist 55,96, wand 52,96, bogenschuetze 47,69, schildtraeger 47,23, musiker 37,45, hugger 28,23
+- **uniform:** elementarmagier 62,66, elfe 61,81, wand 55,19, berserker 54,75, bogenschuetze 53,43, illusionist 52,90, schildtraeger 51,25, musiker 34,99, hugger 23,04
+- **aggressive:** berserker 68,07, wand 63,35, schildtraeger 55,40, bogenschuetze 54,67, illusionist 51,19, elfe 44,27, elementarmagier 42,15, musiker 41,47, hugger 29,41
+- **defensive:** elfe 71,31, berserker 63,10, bogenschuetze 62,85, wand 49,50, elementarmagier 47,95, schildtraeger 44,65, musiker 41,35, illusionist 39,42, hugger 29,88
+
+| Paar | Spearman | Kendall |
+|---|---|---|
+| byactiontype / uniform | 0,917 | 0,833 |
+| byactiontype / aggressive | 0,283 | 0,167 |
+| byactiontype / defensive | 0,617 | 0,500 |
+| uniform / aggressive | 0,333 | 0,222 |
+| uniform / defensive | 0,733 | 0,556 |
+| aggressive / defensive | 0,550 | 0,444 |
 
