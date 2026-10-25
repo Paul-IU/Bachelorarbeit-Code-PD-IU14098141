@@ -191,6 +191,8 @@ public static class NameIndependenceCheck
     /// <summary>Anzeigenamen aller Einheiten der ORIGINALpartie (Held + Team), inklusive möglicher Klone.</summary>
     internal static IReadOnlyDictionary<Guid, string> BuildNameLookup(GameSetup setup)
     {
+        // Ids in derselben Reihenfolge wie AusgangslagenGenerator.BuildGameState (aus Sicht der eigenen Blüte)
+        var (teamA, teamB) = AusgangslagenGenerator.IdReihenfolge(setup, new TacticsCore.Board.Board());
         var names = new Dictionary<Guid, string>();
         void Add(IReadOnlyList<(Heroes.HeroDefinition Hero, Hex.HexCoordinate Position)> units, int firstId, string team)
         {
@@ -203,8 +205,8 @@ public static class NameIndependenceCheck
             }
         }
 
-        Add(setup.TeamAUnits, 1, "A");
-        Add(setup.TeamBUnits, 101, "B");
+        Add(teamA, 1, "A");
+        Add(teamB, 101, "B");
         return names;
     }
 

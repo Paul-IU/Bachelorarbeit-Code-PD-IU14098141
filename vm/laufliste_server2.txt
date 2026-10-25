@@ -1,0 +1,18 @@
+# Server 2 (CCX33, 8 vCPU, --threads 8): ca. 19,0 h
+# defensive Lebenspunkte, aggressive vertauschte Seiten, aggressive Schaden und Lebenspunkte +10/−10/+5
+defensive schildtraeger_hp_10
+defensive schildtraeger_hp_-10
+defensive schildtraeger_hp_5
+defensive schildtraeger_hp_-5
+defensive schildtraeger_hp_2.5
+defensive schildtraeger_hp_-2.5
+aggressive basis 2026 --swap-sides
+aggressive schildtraeger_dmg_10
+aggressive schildtraeger_dmg_-10
+aggressive schildtraeger_dmg_5
+aggressive schildtraeger_dmg_-5
+aggressive schildtraeger_dmg_2.5
+aggressive schildtraeger_dmg_-2.5
+aggressive schildtraeger_hp_10
+aggressive schildtraeger_hp_-10
+aggressive schildtraeger_hp_5

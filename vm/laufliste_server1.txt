@@ -1,0 +1,11 @@
+# Server 1 (CCX33, 8 vCPU, --threads 8): ca. 19,4 h
+# Basisläufe mit Etiketten-Prüfung und vertauschte Seiten defensive, defensive Schaden, aggressive Basis
+defensive basis 2026 --verify-name-independence
+defensive basis 2026 --swap-sides
+aggressive basis 2026 --verify-name-independence
+defensive schildtraeger_dmg_10
+defensive schildtraeger_dmg_-10
+defensive schildtraeger_dmg_5
+defensive schildtraeger_dmg_-5
+defensive schildtraeger_dmg_2.5
+defensive schildtraeger_dmg_-2.5

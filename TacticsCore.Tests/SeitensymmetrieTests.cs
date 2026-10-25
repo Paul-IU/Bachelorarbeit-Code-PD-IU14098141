@@ -125,6 +125,70 @@ public class SeitensymmetrieTests
         PruefeIdentisch(aggressiv ? AgentConfiguration.ThresholdAggressiveVsThresholdAggressive() : AgentConfiguration.ThresholdDefensiveVsThresholdDefensive(),
             paarungen: 3);
 
+    /// <summary>
+    /// Teamreihenfolge getauscht: dieselbe Paarung, aber Komposition Y ist Team A und X Team B, sonst alles gleich.
+    /// Zu jeder Ausgangslage gibt es genau ein Gegenstück (Felder gespiegelt, dieselbe Komposition beginnt).
+    /// Behandelt die Simulation beide Teams gleich - Etiketten, Seiten UND Id-Reihenfolge -, geht jede Partie
+    /// gespiegelt gleich aus. Vor der Korrektur der Id-Vergabe (Ids in absoluter Startfeld-Reihenfolge) wichen
+    /// 967 (aggressive) bzw. 866 (defensive) dieser 1.008 Partien ab.
+    /// </summary>
+    [Theory]
+    [InlineData(AgentNames.Aggressive)]
+    [InlineData(AgentNames.Defensive)]
+    public void TeamreihenfolgeGetauscht_1008Partien_SindGespiegeltIdentisch(string agentName)
+    {
+        var board = new GameBoard();
+        var agents = AgentConfiguration.FromName(agentName);
+        var paare = new List<(GameSetup Normal, GameSetup Getauscht, string Name)>();
+        for (int k = 0; k < 14; k++)
+        {
+            var x = Kompositionen[k * 6 % 84];
+            var y = Kompositionen[(k * 37 + 11) % 84];
+            var getauscht = AusgangslagenGenerator.GenerateAllSetups(y, x, board);
+            foreach (var s in AusgangslagenGenerator.GenerateAllSetups(x, y, board))
+            {
+                var yErwartet = s.TeamBUnits.Select(u => (u.Hero.Id, GameBoard.MirrorBetweenBlossoms(u.Position))).ToHashSet();
+                var xErwartet = s.TeamAUnits.Select(u => (u.Hero.Id, GameBoard.MirrorBetweenBlossoms(u.Position))).ToHashSet();
+                var start = s.StartingTeam == Team.TeamA ? Team.TeamB : Team.TeamA;
+                var t = getauscht.Single(g => g.StartingTeam == start
+                    && g.TeamAUnits.Select(u => (u.Hero.Id, u.Position)).ToHashSet().SetEquals(yErwartet)
+                    && g.TeamBUnits.Select(u => (u.Hero.Id, u.Position)).ToHashSet().SetEquals(xErwartet));
+                paare.Add((s, t, $"{x.Key} gegen {y.Key}"));
+            }
+        }
+
+        var abweichungen = new System.Collections.Concurrent.ConcurrentBag<string>();
+        Parallel.ForEach(paare, p =>
+        {
+            string normal = NachKomposition(Spiele(p.Normal, board, agents), xIstA: true);
+            string getauscht = NachKomposition(Spiele(p.Getauscht, board, agents), xIstA: false);
+            if (normal != getauscht)
+            {
+                abweichungen.Add($"{p.Name}: normal {normal}, getauscht {getauscht}");
+            }
+        });
+
+        Assert.Equal(1008, paare.Count);
+        Assert.True(abweichungen.IsEmpty, $"{abweichungen.Count} von 1008 Partien weichen ab:\n" + string.Join("\n", abweichungen.Take(20)));
+    }
+
+    private static MatchResult Spiele(GameSetup setup, GameBoard board, AgentConfiguration agents) =>
+        new MatchController(AusgangslagenGenerator.BuildGameState(setup, board), agents.CreateTeamAAgent(), agents.CreateTeamBAgent(), seed: 0)
+            .Run(setup.StartingTeam);
+
+    /// <summary>Ergebnis aus Sicht der Kompositionen X und Y statt der Teametiketten.</summary>
+    private static string NachKomposition(MatchResult r, bool xIstA)
+    {
+        var (x, y) = xIstA ? (r.TeamAResult, r.TeamBResult) : (r.TeamBResult, r.TeamAResult);
+        string sieger = r.Winner switch
+        {
+            MatchWinner.TeamA => xIstA ? "X" : "Y",
+            MatchWinner.TeamB => xIstA ? "Y" : "X",
+            _ => "unentschieden",
+        };
+        return $"{sieger}/{r.EndReason}/R{r.RoundsPlayed}/Ü{x.SurvivingUnitCount}:{y.SurvivingUnitCount}/HP{x.TotalCurrentHitPoints}:{y.TotalCurrentHitPoints}";
+    }
+
     private static void PruefeIdentisch(string agentName, int paarungen) =>
         PruefeIdentisch(AgentConfiguration.FromName(agentName), paarungen);
 

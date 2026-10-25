@@ -1,0 +1,17 @@
+# Server 3 (CCX33, 8 vCPU, --threads 8): ca. 18,3 h
+# defensive Fähigkeitsstärke, aggressive Lebenspunkte −5/±2,5 und Fähigkeitsstärke
+defensive schildtraeger_ability_10
+defensive schildtraeger_ability_-10
+defensive schildtraeger_ability_5
+defensive schildtraeger_ability_-5
+defensive schildtraeger_ability_2.5
+defensive schildtraeger_ability_-2.5
+aggressive schildtraeger_hp_-5
+aggressive schildtraeger_hp_2.5
+aggressive schildtraeger_hp_-2.5
+aggressive schildtraeger_ability_10
+aggressive schildtraeger_ability_-10
+aggressive schildtraeger_ability_5
+aggressive schildtraeger_ability_-5
+aggressive schildtraeger_ability_2.5
+aggressive schildtraeger_ability_-2.5

@@ -84,8 +84,22 @@ public static class AusgangslagenGenerator
     /// Reproduzierbarkeit gefährden, siehe auch die Begründung bei
     /// <see cref="Unit.CreateClone"/>), sondern rein positionsbasiert
     /// abgeleitet: Team A erhält die Ids 1-3, Team B die Ids 101-103, in der
-    /// Reihenfolge der Ausgangslage. Das genügt für Eindeutigkeit INNERHALB
-    /// einer Partie, mehr wird nirgends vorausgesetzt.
+    /// Reihenfolge ihrer Startfelder AUS SICHT DER EIGENEN BLÜTE (siehe
+    /// <see cref="IdReihenfolge"/>).
+    ///
+    /// ID-REIHENFOLGE (Bachelorarbeit, Korrektur der Teamreihenfolge): Die Id
+    /// entscheidet Gleichstände zwischen Einheiten desselben Teams auf demselben
+    /// Feld (Zielwahl der heuristischen Agenten, Reihenfolge von Flächenwirkungen).
+    /// Früher wurden die Ids in der absoluten Reihenfolge der Startfelder (q, r)
+    /// vergeben; unter der Spiegelung zwischen den Blüten kehrt sich diese
+    /// Reihenfolge teilweise um, derselbe Held bekam also einen anderen Id-Rang,
+    /// je nachdem, ob seine Komposition Team A oder Team B war (gemessen: Team A
+    /// gewann 52-53 % der Spiegelpartien der heuristischen Agenten). Jetzt werden
+    /// die Startfelder eines Teams, dessen eigene Blüte B ist, vor der Vergabe über
+    /// <see cref="TacticsCore.Board.Board.MirrorBetweenBlossoms"/> gespiegelt
+    /// sortiert - dieselbe Regel wie in HeuristicAgent.CandidateKey. Beide Teams
+    /// werden damit gleich behandelt (geprüft in SeitensymmetrieTests,
+    /// Teamreihenfolge getauscht).
     /// </summary>
     public static GameState BuildGameState(GameSetup setup, TacticsCore.Board.Board board)
     {
@@ -97,19 +111,39 @@ public static class AusgangslagenGenerator
         state.SidesSwapped = setup.TeamAUnits.Count > 0
             && board.GetField(setup.TeamAUnits[0].Position)?.Type == FieldType.BlossomB;
 
+        var (teamA, teamB) = IdReihenfolge(setup, board);
+
         int idCounter = 1;
-        foreach (var (hero, position) in setup.TeamAUnits)
+        foreach (var (hero, position) in teamA)
         {
             state.AddUnit(new Hero(DeterministicId(idCounter++), Team.TeamA, position, hero));
         }
 
         idCounter = 101;
-        foreach (var (hero, position) in setup.TeamBUnits)
+        foreach (var (hero, position) in teamB)
         {
             state.AddUnit(new Hero(DeterministicId(idCounter++), Team.TeamB, position, hero));
         }
 
         return state;
+    }
+
+    /// <summary>
+    /// Einheiten beider Teams in der Reihenfolge ihrer Id-Vergabe: sortiert nach dem
+    /// Startfeld (q, r) aus Sicht der eigenen Blüte - für ein Team, das auf Blüte B
+    /// startet, nach dem gespiegelten Feld. Siehe <see cref="BuildGameState"/>, ID-REIHENFOLGE.
+    /// </summary>
+    public static ((HeroDefinition Hero, HexCoordinate Position)[] TeamA, (HeroDefinition Hero, HexCoordinate Position)[] TeamB)
+        IdReihenfolge(GameSetup setup, TacticsCore.Board.Board board)
+    {
+        (HeroDefinition Hero, HexCoordinate Position)[] Sortiert(IReadOnlyList<(HeroDefinition Hero, HexCoordinate Position)> einheiten)
+        {
+            bool spiegeln = einheiten.Count > 0 && board.GetField(einheiten[0].Position)?.Type == FieldType.BlossomB;
+            HexCoordinate Sicht(HexCoordinate c) => spiegeln ? TacticsCore.Board.Board.MirrorBetweenBlossoms(c) : c;
+            return einheiten.OrderBy(e => Sicht(e.Position).Q).ThenBy(e => Sicht(e.Position).R).ToArray();
+        }
+
+        return (Sortiert(setup.TeamAUnits), Sortiert(setup.TeamBUnits));
     }
 
     private static Guid DeterministicId(int n) => new(n, 0, 0, new byte[8]);

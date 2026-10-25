@@ -2,15 +2,16 @@
 
 Nur der Batch-Lauf (`TacticsCore.Demo full-baseline`) läuft auf dem Server, Godot wird nicht gebraucht.
 
-## Aufteilung der Neuerhebung (nach der Seitenkorrektur)
+## Aufteilung der Neuerhebung (nach der Korrektur der Id-Reihenfolge)
 
-- **lokal:** die 48 Läufe der Zufallsagenten, danach die 20 Läufe von aggressive. Dafür gibt es eine eigene
-  Kette, die Ergebnisse landen direkt in `Ergebnisse/`.
-- **Hetzner, nur defensive**, im Verhältnis der vCPUs 2 : 1 verteilt, damit beide etwa gleichzeitig fertig werden.
-  Bei je rund 41 h kommen noch Installation und Tests dazu.
-  - `laufliste_ccx43.txt`: CCX43, 16 vCPU, `--threads 16`, 13 Läufe (Basis mit Etiketten-Prüfung, vertauschte Seiten,
-    Schaden ±10/±5/±2,5, Lebenspunkte ±10/±5/+2,5)
-  - `laufliste_ccx33.txt`: CCX33, 8 vCPU, `--threads 8`, 7 Läufe (Lebenspunkte −2,5, Fähigkeitsstärke ±10/±5/±2,5)
+- **lokal:** die 48 Läufe der Zufallsagenten (eigene Kette, Ergebnisse direkt in `Ergebnisse/`)
+- **drei Hetzner-CCX33** (je 8 vCPU, `--threads 8`): die 40 Läufe von aggressive und defensive, so verteilt, dass alle
+  drei etwa gleichzeitig fertig werden (Schätzung aus den Laufzeiten auf dem CCX33: defensive ca. 2,0 h, aggressive ca. 0,7 h
+  je Lauf, mit Etiketten-Prüfung doppelt):
+  - `laufliste_server1.txt`: ca. 19,4 h (Basisläufe mit Etiketten-Prüfung, defensive vertauscht, defensive Schaden)
+  - `laufliste_server2.txt`: ca. 19,0 h (defensive Lebenspunkte, aggressive vertauscht, Schaden, Lebenspunkte +10/−10/+5)
+  - `laufliste_server3.txt`: ca. 18,3 h (defensive Fähigkeit, aggressive Lebenspunkte −5/±2,5, Fähigkeit)
+- Die Lauflisten des vorigen Stands (e6953bd) liegen in `lauflisten_e6953bd/`.
 
 Format der Laufliste, je Zeile ein Lauf, `#` leitet Kommentare ein:
 `<agent> <basis|schildtraeger_<dmg|hp|ability>_<prozent>> [seed] [--swap-sides] [--verify-name-independence]`
@@ -35,8 +36,8 @@ copy ref_partien.csv.gz vm\referenz\stichprobe_aggressive_partien.csv.gz
 Skript und Laufliste hochladen und verbinden:
 ```
 cd C:\Users\20020\Desktop\BA\Code
-scp vm\vm_lauf.sh vm\laufliste_ccx43.txt root@<IP_CCX43>:
-ssh root@<IP_CCX43>
+scp vm\vm_lauf.sh vm\laufliste_server1.txt root@<IP_SERVER1>:
+ssh root@<IP_SERVER1>
 ```
 
 Auf dem Server:
@@ -44,12 +45,12 @@ Auf dem Server:
 sed -i 's/\r$//' vm_lauf.sh laufliste_*.txt
 tmux new -s laeufe
 read -rs GH_TOKEN
-bash vm_lauf.sh laufliste_ccx43.txt --branch seiten-vertauschen --threads 16 --repo "https://x-access-token:${GH_TOKEN}@github.com/Paul-IU/Code.git"; unset GH_TOKEN
+bash vm_lauf.sh laufliste_server1.txt --branch seiten-vertauschen --threads 8 --repo "https://x-access-token:${GH_TOKEN}@github.com/Paul-IU/Code.git"; unset GH_TOKEN
 ```
 - `sed` entfernt mögliche Windows-Zeilenenden.
 - Nach `read -rs GH_TOKEN` den Token einfügen und Enter drücken. Er wird nicht angezeigt und landet nicht im Verlauf; dort steht nur `${GH_TOKEN}`.
 - Mit `Strg+B`, dann `D` trennst du dich von tmux. Der Lauf geht weiter, auch wenn die SSH-Verbindung abbricht.
-- Für den CCX33 gilt dasselbe mit `laufliste_ccx33.txt` und `--threads 8`.
+- Für Server 2 und 3 gilt dasselbe mit `laufliste_server2.txt` bzw. `laufliste_server3.txt`.
 
 Fortschritt von Windows aus:
 ```
@@ -67,7 +68,7 @@ cd C:\Users\20020\Desktop\BA\Code
 Get-ChildItem C:\Users\20020\Desktop\BA\pakete\*.tar.gz | ForEach-Object { tar -xzf $_.FullName }
 python Ergebnisse\kennzahlen\laufuebersicht.py
 ```
-Voraussetzung: Die alten Ergebnisse sind archiviert (`python vm\archiviere_alte_ergebnisse.py --ausfuehren`; das passiert vor
+Voraussetzung: Die alten Ergebnisse sind archiviert (`python vm\archiviere_alte_ergebnisse.py --ziel Archiv_vor_Idkorrektur --ausfuehren`; das passiert vor
 dem Start der lokalen Kette). Danach die Server in der Hetzner-Konsole **löschen**, denn sie kosten auch im ausgeschalteten Zustand.
 
 ## Threads
