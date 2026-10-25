@@ -30,7 +30,8 @@ AGENTEN = ("byactiontype", "uniform", "aggressive", "defensive")
 
 
 def iso(t):
-    return t.strftime("%Y-%m-%dT%H:%M:%S") + TZ if t else ""
+    """Ortszeit mit dem jeweils gültigen Versatz (Sommerzeit +02:00, ab 25.10.2026 Winterzeit +01:00)."""
+    return t.astimezone().isoformat(timespec="seconds") if t else ""
 
 
 def lies_fortschritt(pfad):
@@ -161,7 +162,10 @@ def dateilaeufe():
         if os.path.exists(mpfad):
             m = lies_maschine(mpfad)
             start, ende, quelle = ortszeit(m["Start"]), ortszeit(m["Ende"]), "Maschinendatei (Cloud-VM)"
-            maschine = f"{m.get('Maschine', 'unbekannt')}, {m.get('vCPUs', '?')} vCPUs, {m.get('Threads', '?')} Threads"
+            typ = m.get("Maschine", "unbekannt")
+            if "404" in typ:  # vm_lauf.sh hat die Antwort des Hetzner-Metadatendienstes als AWS gedeutet; Zuordnung über die vCPUs
+                typ = {"16": "Hetzner CCX43", "8": "Hetzner CCX33"}.get(m.get("vCPUs", ""), "Hetzner (Typ unbekannt)")
+            maschine = f"{typ}, {m.get('vCPUs', '?')} vCPUs ({m.get('CPU', '?')}), {m.get('Threads', '?')} Threads"
             bem.append(f"Cloud-VM, Git {m.get('Git', '?')}, {m.get('Betriebssystem', '')}")
         elif fp and fp["fertig"]:
             start, ende, quelle = fp["start"], fp["ende"], "Fortschrittsdatei"
@@ -214,6 +218,9 @@ PROTOKOLL_LAEUFE = [
     dict(art="Variante", agent="aggressive", held="schildtraeger", attribut="hp", stufe="-2.5", seed="2026",
          start=t("2026-10-03 21:00:20"), ende=t("2026-10-03 21:00:20"), status="abgebrochen", geplant=257040, erreicht=0,
          zeitquelle="Protokoll", bemerkung="Fehlstart: Kettenskript übergab 'schildtraeger_h_p' (PowerShell-Listenfehler); keine Partie gespielt, sofort neu gestartet"),
+    dict(art="Variante", agent="aggressive", held="schildtraeger", attribut="dmg", stufe="5", seed="2026",
+         start=t("2026-10-24 04:40:48"), ende=t("2026-10-24 04:41:30"), status="abgebrochen", geplant=257040, erreicht=2811,
+         zeitquelle="Fortschrittsdatei", bemerkung="1. Versuch nach der Seitenkorrektur; Windows-Abmeldung und Standby 04:41 (Systemprotokoll, Ereignis 187/42), Kette um 12:15 neu gestartet"),
     # Alte/mauer_eigene_identitaet/etiketten_pruefung.log (Änderungszeit 24.09. 23:08:xx): zwei Prüfläufe mit
     # Etiketten-Prüfung ohne gespeicherte Ergebnisdateien; Dauer aus dem Protokoll, Ende des zweiten = Änderungszeit,
     # Ende des ersten = Start des zweiten (nacheinander gestartet angenommen).

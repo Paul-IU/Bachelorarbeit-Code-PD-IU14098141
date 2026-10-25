@@ -1,0 +1,13 @@
+# Hetzner CCX33 (8 vCPU, --threads 8), Stand 5040f8f: 11 aggressive Varianten, ca. 1 h je Lauf -> ca. 11 h
+# (lokal laufen parallel Schaden +5 %, −5 %, +2,5 %, −2,5 % und Lebenspunkte +10 %)
+aggressive schildtraeger_hp_-10
+aggressive schildtraeger_hp_5
+aggressive schildtraeger_hp_-5
+aggressive schildtraeger_hp_2.5
+aggressive schildtraeger_hp_-2.5
+aggressive schildtraeger_ability_10
+aggressive schildtraeger_ability_-10
+aggressive schildtraeger_ability_5
+aggressive schildtraeger_ability_-5
+aggressive schildtraeger_ability_2.5
+aggressive schildtraeger_ability_-2.5

@@ -5,9 +5,10 @@ Aufruf:  python kapitel8.py   (nach kennzahlen.py, teilmengen.py, erkennung.py)
 Ausgabe: ergebnisse_kapitel8.md
 
 Nur aus vorhandenen Dateien. Aktueller Stand: Unentschieden als halber Sieg, Kompositionen ohne Spiegelpaarung,
-ohne die Zusatzvariante dmg +20 %. Werte, die sich gegenüber den früheren Berichten (vor dem 13.10.2026:
-Unentschieden der Helden nicht als Sieg; Simulationsumfang nur über das Vorzeichen) verändert haben, sind mit
-"‡" markiert; der frühere Wert steht in Klammern. Verglichen wird auf der angezeigten Stellenzahl.
+ohne die Zusatzvariante dmg +20 %. Werte, die sich gegenüber dem Stand VOR DER SEITENKORREKTUR (Neuerhebung
+Oktober 2026, alte Läufe in Ergebnisse/Archiv_vor_Seitenkorrektur, alte Auswertungen in vor_seitenkorrektur/)
+verändert haben, sind mit "‡" markiert; der frühere Wert steht in Klammern. Beide Stände mit denselben
+Definitionen (Unentschieden als halber Sieg). Verglichen wird auf der angezeigten Stellenzahl.
 
 Steigung: Kleinste-Quadrate-Gerade mit Achsenabschnitt durch die Stufen und den Basispunkt (0 %, 0 pp);
 positiv = 0, 2,5, 5, 10; negativ = −10, −5, −2,5, 0; gesamt = alle sieben Punkte.
@@ -18,11 +19,18 @@ import re
 
 import numpy as np
 
-from gemeinsam import AGENTEN, KENNZAHLEN, VERAENDERTER_HELD, finde_laeufe, fmt, helden_quote, lade_csv, lauf_name
+from gemeinsam import AGENTEN, ERGEBNISSE, KENNZAHLEN, VERAENDERTER_HELD, finde_laeufe, fmt, helden_quote, lade_csv, lauf_name
 
 ARTEN = ("dmg", "hp", "ability")
 STUFEN = (10.0, 5.0, 2.5, -2.5, -5.0, -10.0)
-ALT, NEU = 0.0, 0.5
+ALT, NEU = "alt", "neu"   # alt = vor der Seitenkorrektur (Archiv), neu = aktuelle Läufe
+ARCHIV = os.path.join(ERGEBNISSE, "Archiv_vor_Seitenkorrektur")
+VORHER = "vor_seitenkorrektur"   # gesicherte Auswertungsdateien des alten Stands
+
+
+def archiv(praefix):
+    """Gleicher Lauf im Archiv des alten Stands (gleicher relativer Pfad)."""
+    return os.path.join(ARCHIV, os.path.relpath(praefix, ERGEBNISSE))
 MARKE = "‡"
 
 
@@ -55,17 +63,16 @@ def main():
     varianten = {(l[0], l[1], l[2]): l for l in laeufe if l[1] != "basis" and not (l[1] == "dmg" and l[2] == 20.0)}
     st = {}
     for l in list(basis.values()) + list(varianten.values()):
-        paar = lade_csv(l[4] + "_paarungen.csv")
-        st[l] = {w: helden_quote(paar, w)[VERAENDERTER_HELD] for w in (ALT, NEU)}
+        st[l] = {NEU: helden_quote(lade_csv(l[4] + "_paarungen.csv"))[VERAENDERTER_HELD],
+                 ALT: helden_quote(lade_csv(archiv(l[4]) + "_paarungen.csv"))[VERAENDERTER_HELD]}
     delta = {(a, art, p, w): st[varianten[(a, art, p)]][w] - st[basis[a]][w]
              for a in AGENTEN for art in ARTEN for p in STUFEN for w in (ALT, NEU)}
 
     out = ["# Ergebnisse für Kapitel 8.3", "",
            "Erzeugt von `Ergebnisse/kennzahlen/kapitel8.py`. Aktueller Stand: Unentschieden als halber Sieg, Kompositionen ohne "
            "Spiegelpaarung, ohne die Zusatzvariante dmg +20 %. Basis = Basislauf Seed 2026 des jeweiligen Agenten.", "",
-           f"**{MARKE} = gegenüber früheren Berichten verändert**, früherer Wert in Klammern (vor dem 13.10.2026: Unentschieden "
-           "der Helden nicht als Sieg; Simulationsumfang nur über das Vorzeichen der Schildträger-Siegquote). "
-           "Verglichen wird auf der angezeigten Stellenzahl.", ""]
+           f"**{MARKE} = gegenüber dem Stand vor der Seitenkorrektur verändert**, früherer Wert in Klammern (alte Läufe im Archiv, "
+           "dieselben Definitionen). Verglichen wird auf der angezeigten Stellenzahl.", ""]
 
     # ---- 1 Δ Schildträger
     out += ["## 1 Δ der bereinigten Siegquote des Schildträgers (pp)", "",
@@ -138,8 +145,8 @@ def main():
     def ab(datei):
         return {z[0]: ("nie" if z[-1] in ("nicht erreicht", "nie") else z[-1])
                 for z in tabellenzeilen(datei, r"\| schildtraeger_\S+ \|")}
-    e_neu, e_alt = erkennung("erkennung_ergebnisse.md"), erkennung("erkennung_ergebnisse_vor_unentschieden.md")
-    ab_neu, ab_alt = ab("teilmengen_ergebnisse.md"), ab("teilmengen_ergebnisse_vor_unentschieden.md")
+    e_neu, e_alt = erkennung("erkennung_ergebnisse.md"), erkennung(os.path.join(VORHER, "erkennung_ergebnisse.md"))
+    ab_neu, ab_alt = ab("teilmengen_ergebnisse.md"), ab(os.path.join(VORHER, "teilmengen_ergebnisse.md"))
     teil = {z[0]: z for z in tabellenzeilen("teilmengen_ergebnisse.md", r"\| schildtraeger_\S+ \|")}
     out += ["## 4 Erkennung", "",
             "**Kriterium:** (a) Siegquote des Schildträgers in Richtung der Manipulation UND (b) einseitiger Vorzeichentest "
@@ -178,16 +185,19 @@ def main():
     # ---- 5 Top-D und Top-B
     topd = {z[0]: z for z in tabellenzeilen("kennzahlen_ergebnisse.md", r"\| (basis_|schildtraeger_)\S+ \| [a-z+]+ \| \d")}
     topb = {z[0]: z[1] for z in tabellenzeilen("kennzahlen_ergebnisse.md", r"\| (basis_|schildtraeger_)\S+ \| \d+ \|")}
+    topd_alt = {z[0]: z for z in tabellenzeilen(os.path.join(VORHER, "kennzahlen_ergebnisse.md"), r"\| (basis_|schildtraeger_)\S+ \| [a-z+]+ \| \d")}
+    topb_alt = {z[0]: z[1] for z in tabellenzeilen(os.path.join(VORHER, "kennzahlen_ergebnisse.md"), r"\| (basis_|schildtraeger_)\S+ \| \d+ \|")}
     out += ["## 5 Top-D und Top-B", "",
             "Top-D(G) nach Bradley-Terry (Lin et al.), Top-B = Anzahl nicht dominierter Kompositionen (Proposition 5.8). "
-            "Unentschieden zählten hier schon bisher als halber Sieg; alle Werte sind unverändert.", "",
+            "Unentschieden als halber Sieg (wie bisher).", "",
             "| Lauf | c_top | Top-D 0,01 | 0,02 | 0,04 | 0,08 | Top-B |", "|---|---|---|---|---|---|---|"]
     seeds = {a: sorted((l for l in laeufe if l[0] == a and l[1] == "basis"), key=lambda l: l[3]) for a in AGENTEN}
     namen = [lauf_name(l) for a in AGENTEN for l in seeds[a]] + \
             [lauf_name(varianten[(a, art, p)]) for a in AGENTEN for art in ARTEN for p in STUFEN]
     for n in namen:
-        z = topd[n]
-        out.append(f"| {n} | {z[1]} | {z[2]} | {z[3]} | {z[4]} | {z[5]} | {topb[n]} |")
+        z, za = topd[n], topd_alt[n]
+        out.append(f"| {n} | {markiert(z[1], za[1])} | " + " | ".join(markiert(z[i], za[i]) for i in range(2, 6)) +
+                   f" | {markiert(topb[n], topb_alt[n])} |")
     out += ["", "Spannweite über die fünf Seeds (2026–2030), min … max:", "",
             "| Agent | Top-D 0,01 | 0,02 | 0,04 | 0,08 | Top-B |", "|---|---|---|---|---|---|"]
     for a in AGENTEN:
@@ -195,7 +205,8 @@ def main():
             continue
         ns = [lauf_name(l) for l in seeds[a]]
         spalten = [[int(topd[n][i]) for n in ns] for i in range(2, 6)] + [[int(topb[n]) for n in ns]]
-        out.append(f"| {a} | " + " | ".join(f"{min(s)} … {max(s)}" for s in spalten) + " |")
+        spalten_alt = [[int(topd_alt[n][i]) for n in ns] for i in range(2, 6)] + [[int(topb_alt[n]) for n in ns]]
+        out.append(f"| {a} | " + " | ".join(markiert(f"{min(s)} … {max(s)}", f"{min(t)} … {max(t)}") for s, t in zip(spalten, spalten_alt)) + " |")
     out.append("")
 
     # ---- 6 Schildwall
@@ -203,10 +214,13 @@ def main():
             "Aus der Heldendatei, nur einseitige Partien; der Schildwall ist die einzige Fähigkeit des Schildträgers (Abklingzeit 2).", "",
             "| Agent | Züge des Schildträgers | mit Schildwall-Einsatz | Schildwall verfügbar | Einsatz je verfügbarem Zug |",
             "|---|---|---|---|---|"]
-    for a in AGENTEN:
-        h = next(r for r in lade_csv(basis[a][4] + "_helden.csv") if r["Held"] == VERAENDERTER_HELD)
+    def schildwall(praefix):
+        h = next(r for r in lade_csv(praefix + "_helden.csv") if r["Held"] == VERAENDERTER_HELD)
         zuege, eins, verf = int(h["RundenAmZug"]), int(h["Faehigkeitseinsaetze"]), int(h["VerfuegbareZuegeFuerFaehigkeit"])
-        out.append(f"| {a} | {zuege:_} | {fmt(100 * eins / zuege, 2)} % | {fmt(100 * verf / zuege, 2)} % | {fmt(100 * eins / verf, 2)} % |".replace("_", "."))
+        return f"{zuege:_}".replace("_", "."), fmt(100 * eins / zuege, 2) + " %", fmt(100 * verf / zuege, 2) + " %", fmt(100 * eins / verf, 2) + " %"
+    for a in AGENTEN:
+        neu, alt = schildwall(basis[a][4]), schildwall(archiv(basis[a][4]))
+        out.append(f"| {a} | " + " | ".join(markiert(x, y) for x, y in zip(neu, alt)) + " |")
     out.append("")
 
     with open(os.path.join(KENNZAHLEN, "ergebnisse_kapitel8.md"), "w", encoding="utf-8") as f:

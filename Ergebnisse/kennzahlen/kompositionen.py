@@ -192,6 +192,9 @@ def main():
 
 D2_TEXT = [
     "### D2 Code: Symmetrie des Spielfelds und Gleichstandsregel", "",
+    "*Historisch: Analyse vom 20.10.2026, vor der Seitenkorrektur. Die hier beschriebene Ursache ist seit dem 23.10.2026 behoben "
+    "(CandidateKey, Sichtlinie und Flächenwirkungen aus Sicht der eigenen Blüte, Commit 9bf7b7f); Basislauf und vertauschter "
+    "Basislauf stimmen jetzt in allen 257.040 Partien gespiegelt überein. Teil D1 oben ist mit den neuen Läufen gerechnet.*", "",
     "**Spielfeld (`TacticsCore/Board/Board.cs`, Feldliste Z. 75–97).** Blüte A: (0,0) (0,1) (0,2) (−1,1) (−1,2) (1,0) (1,1); "
     "Verbindungsfelder (−1,3) (1,2); Blüte B: (0,3) (0,4) (0,5) (−1,4) (−1,5) (1,3) (1,4). Startfelder A: (0,0) (−1,1) (1,0), "
     "B: (0,5) (−1,5) (1,4). Das Feld ist auf zwei Arten symmetrisch zwischen A und B:",

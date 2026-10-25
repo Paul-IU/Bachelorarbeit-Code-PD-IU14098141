@@ -16,6 +16,9 @@
 #   --branch         Standard main
 #   --threads        parallele Partien je Lauf, Standard: Anzahl der vCPUs (nproc)
 #   --ohne-tests     Testsuite überspringen (nur, wenn sie für diesen Stand schon lief)
+#   --nur-laeufe     nur die Laufliste abarbeiten: keine Installation, kein Klonen/Aktualisieren, kein Bauen,
+#                    keine Tests, keine Stichprobe - für einen Server, auf dem das Skript mit DEMSELBEN Stand
+#                    schon vollständig gelaufen ist (Stichprobe dort bereits bestanden)
 #   --arbeitsordner  Standard ~/tacticscore; Pakete in <arbeitsordner>/pakete
 #
 # Laufliste: eine Zeile je Lauf, "#" leitet Kommentare ein:
@@ -41,6 +44,7 @@ REPO="https://github.com/Paul-IU/Code.git"
 BRANCH="main"
 THREADS="$(nproc)"
 TESTS=1
+NUR_LAEUFE=0
 ARBEIT="$HOME/tacticscore"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -48,6 +52,7 @@ while [ $# -gt 0 ]; do
         --branch) BRANCH="$2"; shift 2 ;;
         --threads) THREADS="$2"; shift 2 ;;
         --ohne-tests) TESTS=0; shift ;;
+        --nur-laeufe) NUR_LAEUFE=1; shift ;;
         --arbeitsordner) ARBEIT="$2"; shift 2 ;;
         -*) echo "Unbekannte Option: $1"; exit 2 ;;
         *) LISTE="$(readlink -f "$1")"; shift ;;
@@ -62,6 +67,16 @@ mkdir -p "$ARBEIT" "$PAKETE"
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$STATUS"; }
 SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"   # als root (z. B. Hetzner) ohne sudo
 
+if [ "$NUR_LAEUFE" = 1 ]; then
+    # Vorhandenen Stand unverändert verwenden (kein fetch/reset, kein Build)
+    [ -d "$HOME/.dotnet" ] && export PATH="$HOME/.dotnet:$PATH"
+    export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+    cd "$REPO_DIR" || { log "ABBRUCH: $REPO_DIR fehlt - erst ohne --nur-laeufe ausführen"; exit 1; }
+    COMMIT="$(git rev-parse --short HEAD)"
+    DLL="TacticsCore.Demo/bin/Release/net8.0/TacticsCore.Demo.dll"
+    [ -f "$DLL" ] || { log "ABBRUCH: $DLL fehlt"; exit 1; }
+    log "Nur Läufe: vorhandener Stand $COMMIT, keine Installation, kein Build, keine Tests, keine Stichprobe"
+else
 # ---------------------------------------------------------------- 1. .NET 8, git, python3
 log "Installation: .NET 8 SDK, git, python3"
 export DEBIAN_FRONTEND=noninteractive
@@ -119,6 +134,8 @@ if ! python3 vm/vergleiche_partien.py "$REFERENZ" "$SP/stichprobe_aggressive_par
     log "ABBRUCH: Stichprobe weicht von der lokalen Referenz ab - keine Läufe gestartet"; exit 1
 fi
 
+fi
+
 # ---------------------------------------------------------------- Maschinentyp
 maschine() {
     local typ=""
@@ -127,6 +144,8 @@ maschine() {
     [ -n "$tok" ] && typ="$(curl -s -m 2 -H "X-aws-ec2-metadata-token: $tok" http://169.254.169.254/latest/meta-data/instance-type || true)" && [ -n "$typ" ] && typ="AWS $typ"
     [ -z "$typ" ] && typ="$(curl -s -m 2 -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/machine-type 2>/dev/null | awk -F/ '{print $NF}' || true)" && [ -n "$typ" ] && typ="GCP $typ"
     [ -z "$typ" ] && typ="$(curl -s -m 2 -H 'Metadata: true' 'http://169.254.169.254/metadata/instance/compute/vmSize?api-version=2021-02-01&format=text' || true)" && [ -n "$typ" ] && typ="Azure $typ"
+    muster='^(AWS|GCP|Azure) [A-Za-z0-9._-]+$'
+    [[ "$typ" =~ $muster ]] || typ=""   # z. B. "404 page not found" (Antwort des Hetzner-Metadatendienstes) verwerfen
     [ -z "$typ" ] && typ="unbekannt"
     echo "$typ"
 }
