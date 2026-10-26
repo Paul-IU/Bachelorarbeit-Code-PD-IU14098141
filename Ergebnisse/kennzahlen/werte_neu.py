@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Werte für die Bachelorarbeit nach der Seitenkorrektur, geordnet nach Kapiteln, neu (alt).
+"""Werte für die Bachelorarbeit, Stand f0286a5 (Seiten- und Id-Korrektur), geordnet nach Kapiteln, neu (alt).
 
 Aufruf:  python werte_neu.py
 Ausgabe: werte_neu.md, heldensiegquoten.csv
 
 Neu = Läufe der Neuerhebung (Oktober 2026, seitensymmetrische Regeln) in Ergebnisse/.
-Alt = Läufe vor der Seitenkorrektur in Ergebnisse/Archiv_vor_Seitenkorrektur/ (gleiche relative Pfade).
+Alt = Läufe des Stands e6953bd (Seitenkorrektur, Ids noch in absoluter Startfeld-Reihenfolge) in
+Ergebnisse/Archiv_vor_Idkorrektur/ (gleiche relative Pfade).
 Beide mit denselben Definitionen: Unentschieden als halber Sieg, Kompositionen ohne Spiegelpaarung, Basisläufe
 Seed 2026, ohne die Zusatzvariante dmg +20 %. Jede Kennzahl wird mit derselben Funktion auf beiden Ständen
 berechnet. "‡" markiert deutliche Änderungen (Schwellen siehe DEUTLICH).
@@ -22,7 +23,7 @@ from gemeinsam import AGENTEN, ERGEBNISSE, GRUNDWERTE, KENNZAHLEN, VERAENDERTER_
 from kennzahlen import bradley_terry, bt_guete, matrix
 
 NEU = ERGEBNISSE
-ALT = os.path.join(ERGEBNISSE, "Archiv_vor_Seitenkorrektur")
+ALT = os.path.join(ERGEBNISSE, "Archiv_vor_Idkorrektur")   # Stand e6953bd
 ARTEN = ("dmg", "hp", "ability")
 STUFEN = (10.0, 5.0, 2.5, -2.5, -5.0, -10.0)
 ZUFALL = ("byactiontype", "uniform")
@@ -181,9 +182,9 @@ def stand(wurzel):
 def main():
     neu, alt = stand(NEU), stand(ALT)
     gws = grundwertsumme()
-    out = ["# Werte für die Bachelorarbeit nach der Seitenkorrektur", "",
+    out = ["# Werte für die Bachelorarbeit, Stand f0286a5", "",
            "Erzeugt von `Ergebnisse/kennzahlen/werte_neu.py`. Je Wert **neu (alt)**: neu = Neuerhebung mit seitensymmetrischen "
-           "Regeln (alle 88 Läufe), alt = Stand vor der Seitenkorrektur (Archiv). Unentschieden als halber Sieg, Kompositionen "
+           "Regeln und Id-Vergabe aus Sicht der eigenen Blüte (alle 88 Läufe, f0286a5), alt = Stand e6953bd (Archiv_vor_Idkorrektur). Unentschieden als halber Sieg, Kompositionen "
            "ohne Spiegelpaarung, Basisläufe Seed 2026, ohne dmg +20 %. "
            f"**{MARKE} = deutliche Änderung** (Prozentwerte ≥ 1 pp, Runden ≥ 1, Rangkorrelation ≥ 0,10, Rang oder Aussage geändert).", ""]
 
@@ -321,47 +322,44 @@ def main():
             w.writerow([h] + [fmt(neu[a]["hq"][h], 2) for a in AGENTEN] + [fmt(mittel[h], 2)])
 
 
-# Bewertung (nach Sichtung der Werte vom 25.10.2026 geschrieben; bei neuen Läufen prüfen)
+# Bewertung (nach Sichtung der Werte vom 26.10.2026 geschrieben; Vergleich f0286a5 gegen e6953bd)
 AUSSAGEN = [
-    "## Was sich an den Aussagen der Arbeit ändert", "",
-    "**Zufallsagenten: nichts.** Rund 2 % der Partien gehen im Detail anders aus (0,3 % im Sieger), keine Heldensiegquote "
-    "ändert sich um mehr als 0,04 pp, Rangfolgen, Seed-Streuung, Δ Schildträger (höchstens 0,02 pp), Erkennung und "
-    "Simulationsumfang bleiben praktisch gleich.", "",
-    "**Heuristische Agenten: deutliche Änderungen, weil der Seitenvorteil wegfällt.**", "",
-    "- **Seitenvorteil behoben (7.3).** Basislauf und vertauschter Basislauf stimmen in allen 257.040 Partien gespiegelt "
-    "überein (vorher wichen 98,5 % bzw. 95,0 % ab); der Team-A-Anteil der Spiegelpartien ist normal und vertauscht identisch, "
-    "das beginnende Team gewinnt rund 50 %. Es bleibt ein kleiner Abstand von 50 % (aggressive 52,96 %, defensive 52,10 %), "
-    "der nicht von der Seite abhängt (in beiden Ausrichtungen gleich). Wahrscheinliche Ursache: Die Unit-Ids werden je Team in "
-    "der absoluten Reihenfolge der Startfelder vergeben, und Gleichstände zwischen Einheiten auf demselben Feld entscheidet die "
-    "Id. Nicht untersucht; für die Arbeit als Restasymmetrie zwischen den Team-Rollen zu nennen.",
-    "- **Agentenabhängigkeit (8.3.1): bleibt und wird stärker.** Zufallsagenten untereinander unverändert (Helden 0,917, "
-    "Kompositionen 0,965). Zwischen Zufallsagenten und aggressive fällt Spearman der Helden auf 0,03 bzw. 0,17 (vorher 0,28 "
-    "bzw. 0,33), zwischen aggressive und defensive auf 0,40 (0,55); bei den Kompositionen ähnlich. Die Rangfolgen der "
-    "heuristischen Agenten ändern sich stark: aggressive Bogenschütze 76,3 % auf Rang 1 (vorher Rang 4), Wand Rang 2, "
-    "Berserker fällt von Rang 1 auf Rang 5, Elfe auf Rang 8; defensive Elfe Rang 1, Bogenschütze Rang 2, Berserker von Rang 2 "
-    "auf Rang 4. Der frühere Spitzenplatz des Berserkers war ein Seiteneffekt (er stand immer auf Blüte A).",
-    "- **Grundwertsumme (8.3.6):** Beim aggressiven Agenten folgt die Rangfolge jetzt weitgehend den Grundwerten (Spearman "
-    "Helden 0,78 statt 0,37, Kompositionen 0,80 statt 0,49), beim defensiven etwas mehr als vorher (0,32 / 0,29 statt 0,13 / "
-    "0,16). Die Aussage „Grundwerte erklären die Stärke kaum“ gilt damit nur noch für die Zufallsagenten.",
-    "- **Spreizung der Kompositionen (8.3.1):** Bei beiden heuristischen Agenten größer als vorher (SD 21,4 / 21,8 pp statt "
-    "16,6 / 18,0), die Spannweite reicht jetzt von etwa 10 % bis 91 % bzw. 95 %.",
-    "- **Erkennung der Fähigkeit (8.3.2): ändert sich für defensive.** Erkannt jetzt bei ±10 %, +5 % und −5 % (vorher nur "
-    "−5 und −10 %); die Wirkung ist größer und in beide Richtungen gerichtet (+10 %: +0,95 pp, −10 %: −1,08 pp, vorher +0,06 / "
-    "−0,66). Für aggressive bleibt die Fähigkeit auf keiner Stufe erkennbar. Insgesamt 64 statt 62 von 72 Varianten erkannt.",
-    "- **Simulationsumfang (8.3.2):** Für die Zufallsagenten unverändert. Beim defensiven Agenten brauchen Schaden ±5 % und "
-    "+10 % jetzt 50.000 statt 10.000 Partien, weil die Wirkung des Schadens dort kleiner ist (+10 %: +1,66 statt +2,44 pp). "
-    "Aggressive Schaden +2,5 % wird auch bei 100.000 Partien nicht mehr in 95 % der Wiederholungen erkannt. Die Fähigkeit "
-    "bei defensive ±10 % ist jetzt ab 50.000 bzw. 100.000 Partien erkennbar.",
-    "- **Schaden und Lebenspunkte (8.3):** Die Asymmetrie beim Schaden bleibt bei allen Agenten (Verhältnis > 1), bei "
-    "aggressive bei ±2,5 % noch ausgeprägter (5,3), bei defensive schwächer (2,2 statt 3,2). Lebenspunkte bleiben nahezu "
-    "linear und symmetrisch; beim aggressiven Agenten wirken sie noch stärker (±10 %: +5,21 / −5,73 pp statt +4,25 / −4,73).",
-    "- **Reaktion schwacher Kompositionen (8.3.3):** Bleibt überwiegend negativ (62 statt 68 von 72 Varianten). Beim "
-    "aggressiven Agenten deutlich stärker (Median Schaden −0,57, Lebenspunkte −0,62), beim defensiven Agenten für den Schaden "
-    "nicht mehr (Median −0,05).",
-    "- **Partien (6.1):** Der defensive Agent spielt länger (26,2 statt 22,6 Runden), mehr Partien enden am Rundenlimit "
-    "(27,5 % statt 19,0 %) und unentschieden (4,5 % statt 3,4 %); der aggressive Agent kommt fast nie ans Limit (0,04 %).",
-    "- **Bradley-Terry (8.3.6):** Das Modell passt bei den heuristischen Agenten etwas besser (mittlere Abweichung 0,099 / "
-    "0,102 statt 0,111 / 0,117), bleibt aber deutlich schlechter als bei den Zufallsagenten (0,06).",
+    "## Was sich gegenüber dem Stand e6953bd ändert", "",
+    "Die Id-Korrektur ändert die Reihenfolge, in der Gleichstände zwischen Einheiten desselben Teams auf einem Feld "
+    "aufgelöst werden. Weil ein früh anders aufgelöster Gleichstand den ganzen Verlauf verändert, gehen viele Partien "
+    "anders aus - bei den Zufallsagenten verschiebt sich zudem die Reihenfolge ihrer Auswahllisten, die Zufallsziehungen "
+    "treffen dadurch andere Züge. Die Läufe sind damit statistisch wie ein neuer Seed zu lesen.", "",
+    "**Zufallsagenten: inhaltlich nichts.** 75 % (byactiontype) bzw. 79 % (uniform) der Partien gehen im Detail anders "
+    "aus, 19 % mit anderem Sieger. Die Heldensiegquoten ändern sich aber nur im Rahmen der Seed-Streuung: über alle fünf "
+    "Seeds RMS 0,12 bzw. 0,13 pp (zwei unabhängige Seeds unterscheiden sich um etwa 0,16-0,20 pp), größte Einzeländerung "
+    "0,36 pp; die Rangfolgen sind unverändert, Spearman byactiontype/uniform 0,917 (Helden) bzw. 0,966 (Kompositionen). "
+    "Δ Schildträger der 36 Varianten ändert sich um höchstens 0,21 pp (RMS 0,07), alle Vorzeichen bleiben. Erkennung und "
+    "Simulationsumfang der Zufallsagenten bleiben bis auf byactiontype Fähigkeit +10/+5 % (jetzt 50.000 bzw. 100.000 statt "
+    "100.000 bzw. nie) gleich.", "",
+    "**Heuristische Agenten: Restasymmetrie beseitigt, Aussagen bleiben, Einzelwerte verschieben sich.**", "",
+    "- **Spiegelpartien (7.3):** Team A gewinnt jetzt exakt 50,00 % (vorher 52,96 % bzw. 52,10 %); Basislauf und vertauschter "
+    "Basislauf stimmen weiter in allen 257.040 Partien gespiegelt überein, Etiketten-Prüfung 0 Abweichungen.",
+    "- **Rangfolgen (8.3.1):** Die Spitzen bleiben (aggressive Bogenschütze vor Wand und Schildträger, defensive Elfe vor "
+    "Bogenschütze und Wand). Beim aggressiven Agenten steigt der Schildträger auf 58,77 % (56,56) und die Wand auf 70,73 % "
+    "(68,70), der Berserker fällt auf 47,26 % (49,85) - wie für einen Held erwartet, der immer in Team A stand. Beim "
+    "defensiven Agenten tauschen Schildträger und Elementarmagier die Plätze 5 und 6.",
+    "- **Agentenabhängigkeit (8.3.1): unverändert stark.** Zufallsagenten gegen aggressive Spearman 0,03 / 0,17 (gleich), "
+    "gegen defensive 0,50 / 0,67 (vorher 0,60 / 0,77), aggressive gegen defensive 0,45 (0,40).",
+    "- **Grundwertsumme (8.3.6):** aggressive folgt weiter weitgehend den Grundwerten (Helden 0,78, Kompositionen 0,84), "
+    "defensive wenig (0,35 / 0,30); Bradley-Terry-Abweichung praktisch gleich.",
+    "- **Erkennung (8.3.2): 62 statt 64 von 72.** Defensive Schaden +2,5 % wird knapp nicht mehr erkannt (18 von 27 "
+    "veränderten Kompositionen in Richtung, Schwelle 19) und defensive Fähigkeit +5 % ebenfalls nicht mehr; erkannt bleibt "
+    "die Fähigkeit bei defensive ±10 % (+10 % genau an der Schwelle: 19 von 28) und −5 % (19 von 28). Für aggressive bleibt die "
+    "Fähigkeit auf keiner Stufe erkennbar. Die beiden Wechsel liegen an der Schwelle des Vorzeichentests und zeigen, wie "
+    "empfindlich knappe Fälle auf die Gleichstandsauflösung reagieren.",
+    "- **Simulationsumfang (8.3.2):** aggressive Schaden +5 % braucht jetzt 50.000 statt 10.000 Partien, Lebenspunkte +10 % "
+    "10.000 statt 1.000; defensive Fähigkeit +10 % wird auch mit 100.000 Partien nicht mehr sicher erkannt.",
+    "- **Schaden und Lebenspunkte (8.3):** Unverändert: Schaden asymmetrisch (Verhältnis > 1 bei allen Agenten, bei aggressive "
+    "±2,5 % jetzt 3,9 statt 5,3), Lebenspunkte nahezu linear und symmetrisch (R² ≥ 0,996), beim aggressiven Agenten am "
+    "stärksten (0,54 pp je %).",
+    "- **Trennung und Reaktion (8.3.2, 8.3.3):** vollständig getrennt 39 statt 42 von 72; Spearman Basis/Reaktion negativ in "
+    "58 statt 62 von 72 Varianten - die Aussage „schwache Kompositionen reagieren stärker“ gilt weiter für Schaden und "
+    "Lebenspunkte, für die Fähigkeit nicht mehr eindeutig (Median nahe 0 bei uniform, aggressive, defensive).",
     "",
 ]
 

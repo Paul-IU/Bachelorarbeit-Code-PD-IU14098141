@@ -1,0 +1,12 @@
+Maschine: unbekannt
+vCPUs: 8
+CPU: AMD EPYC-Milan Processor
+RAM: 30 GB
+Threads: 8
+Betriebssystem: Ubuntu 24.04.4 LTS
+.NET: 8.0.132
+Git: f0286a5
+Start: 2026-10-26T15:15:04+00:00
+Ende: 2026-10-26T16:01:23+00:00
+Dauer_s: 2779
+Status: abgeschlossen

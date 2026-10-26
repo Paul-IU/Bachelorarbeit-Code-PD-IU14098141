@@ -5,18 +5,19 @@ Erzeugt von `Ergebnisse/kennzahlen/spiegel_heuristik.py`. Bestehende Basisläufe
 | | aggressive | defensive |
 |---|---|---|
 | Spiegelzeilen / Partien | 84 / 6048 | 84 / 6048 |
-| Unentschieden | 8 (0,13 %), in 1 Zeilen | 1230 (20,34 %), in 68 Zeilen |
-| Team A an den entschiedenen | 3199 / 6040 = **52,96 %** | 2510 / 4818 = **52,10 %** |
-| Team-A-Anteil je Zeile | 38,89 bis 73,61 % | 30,65 bis 71,21 % |
-| Zeilen mit Team A > 50 / = 50 / < 50 % | 53 / 10 / 21 | 49 / 3 / 32 |
-| Beginnendes Team, Spiegelpartien (entschiedene) | 3211 / 6040 = **53,16 %** | 2454 / 4818 = **50,93 %** |
-| Beginnendes Team je Zeile | 19,44 bis 84,72 % | 14,29 bis 90,48 % |
-| Beginnendes Team, alle 257.040 Partien (entschiedene, Vergleich) | 50,60 % | 50,32 % |
+| Unentschieden | 8 (0,13 %), in 1 Zeilen | 1264 (20,90 %), in 66 Zeilen |
+| Team A an den entschiedenen | 3020 / 6040 = **50,00 %** | 2392 / 4784 = **50,00 %** |
+| Team-A-Anteil je Zeile | 50,00 bis 50,00 % | 50,00 bis 50,00 % |
+| Zeilen mit Team A > 50 / = 50 / < 50 % | 0 / 84 / 0 | 0 / 84 / 0 |
+| Beginnendes Team, Spiegelpartien (entschiedene) | 3332 / 6040 = **55,17 %** | 2454 / 4784 = **51,30 %** |
+| Beginnendes Team je Zeile | 8,33 bis 86,11 % | 0,00 bis 95,65 % |
+| Beginnendes Team, alle 257.040 Partien (entschiedene, Vergleich) | 50,48 % | 50,32 % |
 
 ## Hinweise
 
-- aggressive, extremste Spiegelzeilen (Team A): bogenschuetze+elfe+illusionist 38,9 %, bogenschuetze+elfe+hugger 40,3 %, berserker+bogenschuetze+elfe 41,7 %, berserker+schildtraeger+wand 66,7 %, illusionist+schildtraeger+wand 72,2 %, hugger+schildtraeger+wand 73,6 %
-- defensive, extremste Spiegelzeilen (Team A): illusionist+musiker+schildtraeger 30,6 %, berserker+musiker+schildtraeger 36,6 %, berserker+elfe+schildtraeger 37,8 %, berserker+elfe+hugger 69,1 %, berserker+elfe+illusionist 70,6 %, berserker+hugger+musiker 71,2 %
+- **aggressive:** Siege des beginnenden Teams in den Spiegelpartien 55,17 % – deutlich abweichend von 50 %.
+- aggressive, extremste Spiegelzeilen (Team A): berserker+bogenschuetze+elementarmagier 50,0 %, berserker+bogenschuetze+elfe 50,0 %, berserker+bogenschuetze+hugger 50,0 %, illusionist+musiker+wand 50,0 %, illusionist+schildtraeger+wand 50,0 %, musiker+schildtraeger+wand 50,0 %
+- defensive, extremste Spiegelzeilen (Team A): berserker+bogenschuetze+elementarmagier 50,0 %, berserker+bogenschuetze+elfe 50,0 %, berserker+bogenschuetze+hugger 50,0 %, illusionist+musiker+wand 50,0 %, illusionist+schildtraeger+wand 50,0 %, musiker+schildtraeger+wand 50,0 %
 
 ## Wie oft steht ein Held auf Blüte A?
 

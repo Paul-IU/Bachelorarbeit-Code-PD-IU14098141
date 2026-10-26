@@ -1,0 +1,12 @@
+Maschine: AWS 404 page not found
+vCPUs: 8
+CPU: AMD EPYC-Milan Processor
+RAM: 30 GB
+Threads: 8
+Betriebssystem: Ubuntu 24.04.4 LTS
+.NET: 8.0.132
+Git: 5040f8f
+Start: 2026-10-24T12:41:50+00:00
+Ende: 2026-10-24T13:25:55+00:00
+Dauer_s: 2645
+Status: abgeschlossen

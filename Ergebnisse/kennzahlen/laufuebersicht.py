@@ -90,9 +90,10 @@ ETIKETTEN_HEURISTIK = {
 def klassifiziere(rel, datei):
     """art, agent, held, attribut, stufe, seed, bemerkung aus Ordner und Dateiname."""
     teile0 = rel.replace("\\", "/").split("/")
-    if teile0[0] == "Archiv_vor_Seitenkorrektur":  # vm/archiviere_heuristik.py: alte heuristische Läufe
+    if teile0[0] in ("Archiv_vor_Seitenkorrektur", "Archiv_vor_Idkorrektur"):  # vm/archiviere_alte_ergebnisse.py
         art, agent, held, attribut, stufe, seed, bem = klassifiziere("/".join(teile0[1:]), datei)
-        return art, agent, held, attribut, stufe, seed, bem + ["archiviert: heuristischer Agent vor der Seitenkorrektur"]
+        stand = "vor der Seitenkorrektur (vor 9bf7b7f)" if teile0[0] == "Archiv_vor_Seitenkorrektur" else "Stand e6953bd (vor der Korrektur der Id-Reihenfolge)"
+        return art, agent, held, attribut, stufe, seed, bem + [f"archiviert: {stand}"]
     agent = next((a for a in AGENTEN if f"_{a}" in datei), "")
     bem = []
     if not agent:

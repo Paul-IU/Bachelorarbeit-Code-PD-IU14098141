@@ -5,8 +5,8 @@ Aufruf:  python kapitel8.py   (nach kennzahlen.py, teilmengen.py, erkennung.py)
 Ausgabe: ergebnisse_kapitel8.md
 
 Nur aus vorhandenen Dateien. Aktueller Stand: Unentschieden als halber Sieg, Kompositionen ohne Spiegelpaarung,
-ohne die Zusatzvariante dmg +20 %. Werte, die sich gegenüber dem Stand VOR DER SEITENKORREKTUR (Neuerhebung
-Oktober 2026, alte Läufe in Ergebnisse/Archiv_vor_Seitenkorrektur, alte Auswertungen in vor_seitenkorrektur/)
+ohne die Zusatzvariante dmg +20 %. Werte, die sich gegenüber dem Stand e6953bd (Seitenkorrektur, aber Ids noch in
+absoluter Startfeld-Reihenfolge; Läufe in Ergebnisse/Archiv_vor_Idkorrektur, Auswertungen in vor_idkorrektur/)
 verändert haben, sind mit "‡" markiert; der frühere Wert steht in Klammern. Beide Stände mit denselben
 Definitionen (Unentschieden als halber Sieg). Verglichen wird auf der angezeigten Stellenzahl.
 
@@ -23,9 +23,9 @@ from gemeinsam import AGENTEN, ERGEBNISSE, KENNZAHLEN, VERAENDERTER_HELD, finde_
 
 ARTEN = ("dmg", "hp", "ability")
 STUFEN = (10.0, 5.0, 2.5, -2.5, -5.0, -10.0)
-ALT, NEU = "alt", "neu"   # alt = vor der Seitenkorrektur (Archiv), neu = aktuelle Läufe
-ARCHIV = os.path.join(ERGEBNISSE, "Archiv_vor_Seitenkorrektur")
-VORHER = "vor_seitenkorrektur"   # gesicherte Auswertungsdateien des alten Stands
+ALT, NEU = "alt", "neu"   # alt = Stand e6953bd (vor der Korrektur der Id-Reihenfolge), neu = aktuelle Läufe (f0286a5)
+ARCHIV = os.path.join(ERGEBNISSE, "Archiv_vor_Idkorrektur")   # Läufe des Stands e6953bd
+VORHER = "vor_idkorrektur"   # gesicherte Auswertungsdateien des Stands e6953bd
 
 
 def archiv(praefix):
@@ -71,7 +71,7 @@ def main():
     out = ["# Ergebnisse für Kapitel 8.3", "",
            "Erzeugt von `Ergebnisse/kennzahlen/kapitel8.py`. Aktueller Stand: Unentschieden als halber Sieg, Kompositionen ohne "
            "Spiegelpaarung, ohne die Zusatzvariante dmg +20 %. Basis = Basislauf Seed 2026 des jeweiligen Agenten.", "",
-           f"**{MARKE} = gegenüber dem Stand vor der Seitenkorrektur verändert**, früherer Wert in Klammern (alte Läufe im Archiv, "
+           f"**{MARKE} = gegenüber dem Stand e6953bd verändert** (vor der Korrektur der Id-Reihenfolge), früherer Wert in Klammern (alte Läufe im Archiv, "
            "dieselben Definitionen). Verglichen wird auf der angezeigten Stellenzahl.", ""]
 
     # ---- 1 Δ Schildträger
