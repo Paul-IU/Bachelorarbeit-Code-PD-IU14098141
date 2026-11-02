@@ -2,3 +2,6 @@ bin/
 obj/
 .vs/
 *.user
+
+# Python-Zwischendateien
+__pycache__/
