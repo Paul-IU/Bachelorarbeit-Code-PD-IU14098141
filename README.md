@@ -1,7 +1,8 @@
 # TacticsCore – Code und Ergebnisse zur Bachelorarbeit
 
-Dieses Repository enthält das rundenbasierte Hex-Taktikspiel **TacticsCore**, mit dem die Bachelorarbeit Ungleichgewichte
-im Heldenkatalog durch Massensimulation untersucht. Es umfasst die Spiellogik, die Agenten (zwei Zufallsagenten und zwei
+TacticsCore ist der Prototyp der Bachelorarbeit „Automatisiertes Playtesting zur Balance-Bewertung in rundenbasierten
+1-gegen-1-Spielen mit Teamzusammenstellung“ (Paul Decker, IU Internationale Hochschule, 2026). Das rundenbasierte
+Hex-Taktikspiel dient dazu, Ungleichgewichte im Heldenkatalog durch Massensimulation zu untersuchen. Dieses Repository umfasst die Spiellogik, die Agenten (zwei Zufallsagenten und zwei
 heuristische Agenten), die Batch-Simulation, die Testsuite, eine Godot-Oberfläche sowie alle Simulationsergebnisse und
 Auswertungsskripte.
 
