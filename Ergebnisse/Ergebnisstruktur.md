@@ -148,14 +148,17 @@ Auswertungen der beiden Archive.
 
 | Kapitel | Dateien |
 |---|---|
-| 6.1 Partien | `werte_neu.md` (6.1), `kennzahlen_ergebnisse.md` (Schritt 1a), `laufuebersicht.csv`, `zeitleiste.png/.svg` |
-| 7.1 Schildträger, Aufladen | `werte_neu.md` (7.1), `trefferschwellen.md` |
+| 6.1 Partien | `werte_neu.md` (6.1), `kennzahlen_ergebnisse.md` (Schritt 1a), `laufuebersicht.csv`, `zeitleiste.png` |
+| 7.1 Schildträger, Aufladen | `werte_neu.md` (7.1) |
 | 7.3 Verifikation | `werte_neu.md` (7.3), `seiten_ergebnisse.md`, `spiegel_heuristik.md`, `seed_sd_kompositionen_*.csv`, `vergleich_seitenkorrektur_zufall.md` |
 | 8.3.1 Siegquoten, Rangfolgen | `werte_neu.md` (8.3.1), `heldensiegquoten.csv/.xlsx`, `kompositionen_ergebnisse.md` (Teil A), `kennzahlen_ergebnisse.md` (Rangfolgen) |
-| 8.3.2 Erkennung | `ergebnisse_kapitel8.md` (1–4), `erkennung_ergebnisse.md`, `teilmengen_ergebnisse.md`, `platzhalter_kapitel8.md`, `Abb_8-3-2_Kompositionen.png/.svg`, `abb_8-3-2_daten.csv/.xlsx`, `kompositionen_delta.csv` |
+| 8.3.2 Erkennung | `erkennung_ergebnisse.md`, `werte_neu.md` (8.3.2), `ergebnisse_kapitel8.md` (1 und 4, Erkennungsmatrix), `platzhalter_kapitel8.md` (1), `Abb_8-3-2_Kompositionen.png/.svg`, `abb_8-3-2_daten.csv/.xlsx`, `kompositionen_delta.csv` |
 | 8.3.3 Reaktion der Kompositionen | `werte_neu.md` (8.3.3), `platzhalter_kapitel8.md` (2), `kompositionen_ergebnisse.md` (Teil B/C) |
+| 8.3.4 Steigung, Verhältnis | `ergebnisse_kapitel8.md` (1–3) |
 | 8.3.6 Bradley-Terry, Grundwertsumme | `werte_neu.md` (8.3.6), `grundwertsumme.csv`, `kennzahlen_ergebnisse.md` (Schritte 3–5), `ergebnisse_kapitel8.md` (5) |
+| 8.3.7 Simulationsumfang | `teilmengen_ergebnisse.md`, `ergebnisse_kapitel8.md` (4, Simulationsumfang), `erkennung_ergebnisse.md` (Spalte „kleinste Stichprobe“) |
 | 8.3 Schildwall | `ergebnisse_kapitel8.md` (6) |
+| 9.1.3 Trefferschwellen | `trefferschwellen.md` |
 
 Ohne Kapitelwerte: `matrizen/` (84 × 84-Siegquotenmatrizen je Lauf, Grundlage für Top-D und Top-B) sowie
 `vergleich_unentschieden.md` und die `*_vor_unentschieden.md` (Stand vor der Umstellung „Unentschieden als halber
