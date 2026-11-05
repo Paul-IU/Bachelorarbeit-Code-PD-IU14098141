@@ -1,7 +1,7 @@
 # TacticsCore – Code und Ergebnisse zur Bachelorarbeit
 
 TacticsCore ist der Prototyp der Bachelorarbeit „Automatisiertes Playtesting zur Balance-Bewertung in rundenbasierten
-1-gegen-1-Spielen mit Teamzusammenstellung“ (Paul Decker, IU Internationale Hochschule, 2026). Das rundenbasierte
+1-gegen-1-Spielen mit Teamzusammenstellung: Metriken, Automatisierbarkeit und Erkennung von Ungleichgewichten“ (Paul Decker, IU Internationale Hochschule, 2026). Das rundenbasierte
 Hex-Taktikspiel dient dazu, Ungleichgewichte im Heldenkatalog durch Massensimulation zu untersuchen. Dieses Repository umfasst die Spiellogik, die Agenten (zwei Zufallsagenten und zwei
 heuristische Agenten), die Batch-Simulation, die Testsuite, eine Godot-Oberfläche sowie alle Simulationsergebnisse und
 Auswertungsskripte.
@@ -41,6 +41,10 @@ Zeile je Partie) und eine Fortschrittsdatei. Die vollständige Liste aller Läuf
 | Python | 3.12 mit numpy (2.2.5), matplotlib (3.11.2) und openpyxl (3.1.5) |
 | Godot | 4.7, C#-Variante – nur für die Oberfläche, nicht für Simulation und Auswertung |
 
+`TacticsCore.Godot/NuGet.Config` enthält einen lokalen Pfad zu den NuGet-Paketen der Godot-Installation
+(`C:\Users\20020\Desktop\BA\Godot\…`). Vor dem Öffnen der Oberfläche ist er an die eigene Godot-Installation
+anzupassen.
+
 ## Befehle
 
 Alle Befehle im obersten Ordner des Repositorys.
@@ -55,8 +59,10 @@ dotnet build TacticsCore.Demo -c Release
 dotnet test TacticsCore.Tests -c Release
 ```
 
-**Ein Lauf** – Beispiel: defensiver Agent, Schaden des Schildträgers +5 %, Seed 2026, Ausgabe in den Ordner `neu/`:
+**Ein Lauf** – Beispiel: defensiver Agent, Schaden des Schildträgers +5 %, Seed 2026, Ausgabe in den Ordner `neu/`.
+Das Programm legt den Zielordner nicht selbst an, er muss vorher existieren:
 ```
+mkdir neu
 dotnet TacticsCore.Demo/bin/Release/net8.0/TacticsCore.Demo.dll full-baseline neu/defensive_dmg5_paarungen.csv neu/defensive_dmg5_kompositionen.csv neu/defensive_dmg5_helden.csv 2026 defensive --variant schildtraeger_dmg_5
 ```
 Partie- und Fortschrittsdatei entstehen automatisch daneben. Agenten: `byactiontype`, `uniform`, `aggressive`,
@@ -81,7 +87,9 @@ python grundwertsumme.py
 python werte_neu.py
 python laufuebersicht.py
 python zeitleiste.py
+python trefferschwellen.py
 ```
+`trefferschwellen.py` berechnet die Trefferschwellen des Schildträgers für Kapitel 9.1.3.
 `kapitel8.py` und `werte_neu.py` vergleichen zusätzlich mit dem Stand e6953bd und brauchen dafür
 `Ergebnisse/Archiv_vor_Idkorrektur/` und `Ergebnisse/kennzahlen/vor_idkorrektur/`.
 
@@ -111,3 +119,8 @@ Die Läufe der heuristischen Agenten auf Stand f0286a5 liefen auf drei Hetzner-C
 | gerechnet auf | lokal | lokal | 3 × Hetzner CCX33 | 3 × Hetzner CCX33 |
 
 Jeder Lauf umfasst 3.570 Paarungen × 72 Ausgangslagen = 257.040 Partien.
+
+## Grafiken
+
+- `TacticsCore.Godot/Art/Projectiles/note.png`: designed by juicy_fish – Magnific.com
+- Die Grafiken der Helden und Felder wurden mit ChatGPT (OpenAI) generiert.

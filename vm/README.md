@@ -45,7 +45,7 @@ Auf dem Server:
 sed -i 's/\r$//' vm_lauf.sh laufliste_*.txt
 tmux new -s laeufe
 read -rs GH_TOKEN
-bash vm_lauf.sh laufliste_server1.txt --branch seiten-vertauschen --threads 8 --repo "https://x-access-token:${GH_TOKEN}@github.com/Paul-IU/Code.git"; unset GH_TOKEN
+bash vm_lauf.sh laufliste_server1.txt --branch main --threads 8 --repo "https://x-access-token:${GH_TOKEN}@github.com/Paul-IU/Bachelorarbeit-Code-PD-IU14098141.git"; unset GH_TOKEN
 ```
 - `sed` entfernt mögliche Windows-Zeilenenden.
 - Nach `read -rs GH_TOKEN` den Token einfügen und Enter drücken. Er wird nicht angezeigt und landet nicht im Verlauf; dort steht nur `${GH_TOKEN}`.
